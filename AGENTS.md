@@ -47,10 +47,13 @@ dotnet build src/ModernRegedit/ModernRegedit.csproj -c Debug -p:Platform=x64
 - `Microsoft.Win32.Registry` 不支持变更通知与事务：统一走自写 DllImport 层 `RegistryNative`（CsWin32 生成器在本机不可用）。
 - 枚举大键（如 SOFTWARE 约 2800 子键）必须在后台线程，结果经 `DispatcherQueue` 回 UI；子键不做逐个计数查询（N+1 会挂死 UI 线程）。
 - WinUI `TreeViewItem` 的 UIA Name 是 CLR 类型名，真实标签在内层 Text；视口外节点未物化，UIA 查找需先 `ScrollIntoView`。
+- `RegEnumValueW` 数据缓冲不足（ERROR_MORE_DATA）时不保证回写名字长度：必须按所需数据大小重枚举同一索引，统一走 `RegistryService.EnumerateValues`。
+- 后台线程不可碰 WinUI 对象（如 `Application.Current.Resources`）：跨线程异常会以 stowed exception 直接 fail-fast，且 UI 回调可能永不执行。
+- 传给 `DispatcherQueue.TryEnqueue` 的批列表必须传快照：排队后源列表会被复用清空，直接传引用会与 UI 回调竞争。
 - TFM 用 `net10.0-windows10.0.26100`（28000 的 SDK 投影未发布）。
 - 改包身份须与 [docs/商店发布信息.md](docs/商店发布信息.md) 同步。
 
 ## 当前状态与里程碑纪律
 
-- 当前：M1 完成（2026-10-13），下一里程碑见 PLAN.md §5。
+- 当前：M2 完成（2026-10-13），下一里程碑见 PLAN.md §5。
 - 里程碑完成时必须：PLAN.md 表格打勾 + CHANGELOG.md 追加条目 + push 后确认 CI 绿（`gh run watch`）。
