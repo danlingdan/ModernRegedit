@@ -1,7 +1,7 @@
 # allowElevation 预审邮件草稿
 
 M0 唯一剩余事项。收件人：`reportapp@microsoft.com`，发出后约 5 个工作日出结果（见 research/06）。
-发送前补两处：Partner Center 注册后填账户信息；首次商店提交前 Package Identity 可暂缺。
+发送前只补一处：末尾联系邮箱。身份信息（PFN / Store ID）已填入。
 
 ---
 
@@ -12,9 +12,10 @@ Hello,
 We are developing ModernRegedit, an open-source (MIT) registry editor for Windows built on Windows App SDK 2.5.1 / WinUI 3, and intend to declare the restricted capability `allowElevation` (together with `runFullTrust` and `unvirtualizedResources`) in our Microsoft Store package.
 
 - App name: ModernRegedit
-- Publisher: HuaJiahao (individual developer)
-- Partner Center account: [注册后填写：账户邮箱 / Seller ID]
-- Package identity: [首次提交后填写；可暂缺]
+- Publisher: 华佳浩 (HuaJiahao), individual Partner Center account
+- Package identity name: 4E406B62.ModernRegedit
+- Package family name: 4E406B62.ModernRegedit_dkcj7grfjrc2g
+- Store ID: 9N1Z8LLKBRC9
 - Source code: https://github.com/danlingdan/ModernRegedit (private until first release)
 
 Justification:
