@@ -36,6 +36,7 @@ public sealed partial class MainWindow : Window
         if (args.AddedItems.Count > 0 && args.AddedItems[0] is RegistryKeyNode node)
         {
             ViewModel.Select(node);
+            ViewModel.PushHistory(node.FullPath);
         }
     }
 
@@ -50,11 +51,38 @@ public sealed partial class MainWindow : Window
         RegistryKeyNode? node = await ViewModel.NavigateToAsync(AddressBar.Text);
         if (node is not null)
         {
-            SelectTreeNode(node);
+            SelectTreeNode(node, recordHistory: true);
         }
     }
 
-    private void SelectTreeNode(RegistryKeyNode node)
+    private async void OnBackClick(object sender, RoutedEventArgs e)
+    {
+        RegistryKeyNode? node = await ViewModel.GoBackAsync();
+        if (node is not null)
+        {
+            SelectTreeNode(node, recordHistory: false);
+        }
+    }
+
+    private async void OnForwardClick(object sender, RoutedEventArgs e)
+    {
+        RegistryKeyNode? node = await ViewModel.GoForwardAsync();
+        if (node is not null)
+        {
+            SelectTreeNode(node, recordHistory: false);
+        }
+    }
+
+    private async void OnUpClick(object sender, RoutedEventArgs e)
+    {
+        RegistryKeyNode? node = await ViewModel.GoUpAsync();
+        if (node is not null && !string.Equals(node.FullPath, ViewModel.SelectedNode?.FullPath, StringComparison.OrdinalIgnoreCase))
+        {
+            SelectTreeNode(node, recordHistory: true);
+        }
+    }
+
+    private void SelectTreeNode(RegistryKeyNode node, bool recordHistory)
     {
         _suppressSelectionEvents = true;
         try
@@ -67,6 +95,11 @@ public sealed partial class MainWindow : Window
         }
 
         ViewModel.Select(node);
+        if (recordHistory)
+        {
+            ViewModel.PushHistory(node.FullPath);
+        }
+
         _ = BringIntoViewAsync(node);
     }
 

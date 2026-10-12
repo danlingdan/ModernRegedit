@@ -18,10 +18,15 @@ public partial class MainViewModel : ObservableObject
 
     private readonly RegistryService _service = new();
 
+    private readonly List<string> _history = new();
+
     private DispatcherQueue? _dispatcherQueue;
 
     /// <summary>选中代数：丢弃后台线程返回时已过期的值加载结果。</summary>
     private int _selectGeneration;
+
+    /// <summary>历史游标；-1 表示无历史。</summary>
+    private int _historyIndex = -1;
 
     private int _selectedSubKeyCount;
 
@@ -37,6 +42,12 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string AddressText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool CanGoBack { get; private set; }
+
+    [ObservableProperty]
+    public partial bool CanGoForward { get; private set; }
 
     public ObservableCollection<RegistryKeyNode> Roots { get; } = new();
 
@@ -125,6 +136,86 @@ public partial class MainViewModel : ObservableObject
         });
 
         return completion.Task;
+    }
+
+    /// <summary>记录一次用户发起的位置变更；同一位置连续选中不重复入栈。</summary>
+    public void PushHistory(string path)
+    {
+        if (_historyIndex >= 0 && string.Equals(_history[_historyIndex], path, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (_historyIndex < _history.Count - 1)
+        {
+            _history.RemoveRange(_historyIndex + 1, _history.Count - _historyIndex - 1);
+        }
+
+        _history.Add(path);
+        if (_history.Count > 500)
+        {
+            _history.RemoveAt(0);
+        }
+
+        _historyIndex = _history.Count - 1;
+        UpdateNavigationState();
+    }
+
+    public async Task<RegistryKeyNode?> GoBackAsync()
+    {
+        if (!CanGoBack)
+        {
+            return null;
+        }
+
+        _historyIndex--;
+        UpdateNavigationState();
+        RegistryKeyNode? node = await ResolveNodeAsync(_history[_historyIndex]);
+        if (node is null)
+        {
+            _historyIndex++;
+            UpdateNavigationState();
+        }
+
+        return node;
+    }
+
+    public async Task<RegistryKeyNode?> GoForwardAsync()
+    {
+        if (!CanGoForward)
+        {
+            return null;
+        }
+
+        _historyIndex++;
+        UpdateNavigationState();
+        RegistryKeyNode? node = await ResolveNodeAsync(_history[_historyIndex]);
+        if (node is null)
+        {
+            _historyIndex--;
+            UpdateNavigationState();
+        }
+
+        return node;
+    }
+
+    public async Task<RegistryKeyNode?> GoUpAsync()
+    {
+        string? current = SelectedNode?.FullPath;
+        if (current is null)
+        {
+            return null;
+        }
+
+        int cut = current.LastIndexOf('\\');
+        string parent = cut < 0 ? current : current[..cut];
+        return await ResolveNodeAsync(parent);
+    }
+
+    private void UpdateNavigationState()
+    {
+        CanGoBack = _historyIndex > 0;
+        CanGoForward = _historyIndex < _history.Count - 1;
     }
 
     /// <summary>按路径跳转：逐级展开并定位。成功返回目标节点（由窗口负责选中与滚动），失败返回 null 并在状态栏报错。</summary>

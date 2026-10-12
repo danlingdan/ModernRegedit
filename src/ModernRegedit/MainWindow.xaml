@@ -18,13 +18,62 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <TextBox
-            x:Name="AddressBar"
+        <Grid
             Grid.Row="0"
             Grid.ColumnSpan="2"
-            PlaceholderText="Type a key path, e.g. HKLM\SOFTWARE\Microsoft"
-            Text="{x:Bind ViewModel.AddressText, Mode=TwoWay}"
-            KeyDown="OnAddressKeyDown" />
+            ColumnSpacing="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <AppBarButton
+                Grid.Column="0"
+                Icon="Back"
+                Label="Back"
+                IsCompact="True"
+                IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}"
+                ToolTipService.ToolTip="Back (Alt+Left)"
+                Click="OnBackClick">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Menu" Key="Left" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+
+            <AppBarButton
+                Grid.Column="1"
+                Icon="Forward"
+                Label="Forward"
+                IsCompact="True"
+                IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}"
+                ToolTipService.ToolTip="Forward (Alt+Right)"
+                Click="OnForwardClick">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Menu" Key="Right" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+
+            <AppBarButton
+                Grid.Column="2"
+                Icon="Up"
+                Label="Up"
+                IsCompact="True"
+                ToolTipService.ToolTip="Up one level (Alt+Up)"
+                Click="OnUpClick">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Modifiers="Menu" Key="Up" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+
+            <TextBox
+                x:Name="AddressBar"
+                Grid.Column="3"
+                PlaceholderText="Type a key path, e.g. HKLM\SOFTWARE\Microsoft"
+                Text="{x:Bind ViewModel.AddressText, Mode=TwoWay}"
+                KeyDown="OnAddressKeyDown" />
+        </Grid>
 
         <TreeView
             x:Name="KeyTree"
