@@ -195,7 +195,9 @@
                 Grid.Row="1"
                 ItemsSource="{x:Bind ViewModel.Values}"
                 SelectedItem="{x:Bind ViewModel.SelectedValueRow, Mode=TwoWay}"
-                SelectionMode="Single">
+                SelectionMode="Single"
+                DoubleTapped="OnValuesDoubleTapped"
+                RightTapped="OnValuesRightTapped">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="vm:RegistryValueRow">
                         <Grid ColumnSpacing="8">

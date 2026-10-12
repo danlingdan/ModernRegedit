@@ -1,6 +1,8 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using ModernRegedit.Services;
+using ModernRegedit.UI;
 using ModernRegedit.ViewModels;
 using Windows.System;
 
@@ -134,6 +136,113 @@ public sealed partial class MainWindow : Window
     private void OnCloseSearch(object sender, RoutedEventArgs e)
     {
         ViewModel.CloseSearchPanel();
+    }
+
+    private async void OnValuesDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        await EditValueAsync(ViewModel.SelectedValueRow);
+    }
+
+    private void OnValuesRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        RegistryValueRow? row = (e.OriginalSource as FrameworkElement)?.DataContext as RegistryValueRow;
+        var menu = new MenuFlyout();
+
+        if (row is not null && !row.IsUnset)
+        {
+            var modify = new MenuFlyoutItem { Text = "Modify…" };
+            modify.Click += (_, _) => _ = EditValueAsync(row);
+            menu.Items.Add(modify);
+
+            var delete = new MenuFlyoutItem { Text = "Delete" };
+            delete.Click += (_, _) => _ = DeleteValueAsync(row);
+            menu.Items.Add(delete);
+
+            menu.Items.Add(new MenuFlyoutSeparator());
+        }
+
+        var newValue = new MenuFlyoutItem { Text = "New Value…" };
+        newValue.Click += (_, _) => _ = NewValueAsync();
+        menu.Items.Add(newValue);
+
+        menu.ShowAt(ValuesList, e.GetPosition(ValuesList));
+    }
+
+    private async Task EditValueAsync(RegistryValueRow? row)
+    {
+        if (row is null || ViewModel.SelectedNode is null)
+        {
+            return;
+        }
+
+        string title = row.IsUnset ? "Set the (Default) value" : $"Edit value '{row.Name}'";
+        byte[] initial = row.IsUnset ? Array.Empty<byte>() : row.Data;
+        var edited = await ValueDialogs.ShowAsync(
+            Content.XamlRoot, title, row.ValueName, row.Kind, initial, allowPickType: false);
+        if (edited is null)
+        {
+            return;
+        }
+
+        await ViewModel.ApplyWritesAsync(
+        [
+            new WriteOperation(WriteOpKind.SetValue, ViewModel.SelectedNode.FullPath, edited.Value.Name, ValueType: edited.Value.Kind, Data: edited.Value.Data),
+        ]);
+    }
+
+    private async Task NewValueAsync()
+    {
+        if (ViewModel.SelectedNode is null)
+        {
+            return;
+        }
+
+        var created = await ValueDialogs.ShowAsync(
+            Content.XamlRoot, $"New value under '{ViewModel.SelectedNode.FullPath}'", "New Value", RegKind.Sz, Array.Empty<byte>(), allowPickType: true);
+        if (created is null)
+        {
+            return;
+        }
+
+        await ViewModel.ApplyWritesAsync(
+        [
+            new WriteOperation(WriteOpKind.SetValue, ViewModel.SelectedNode.FullPath, created.Value.Name, ValueType: created.Value.Kind, Data: created.Value.Data),
+        ]);
+    }
+
+    private async Task DeleteValueAsync(RegistryValueRow row)
+    {
+        if (ViewModel.SelectedNode is null)
+        {
+            return;
+        }
+
+        bool confirmed = await ConfirmAsync(
+            Content.XamlRoot, "Delete value", $"Delete value '{row.Name}' from '{ViewModel.SelectedNode.FullPath}'?", "Delete");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await ViewModel.ApplyWritesAsync(
+        [
+            new WriteOperation(WriteOpKind.DeleteValue, ViewModel.SelectedNode.FullPath, row.ValueName),
+        ]);
+    }
+
+    private static async Task<bool> ConfirmAsync(XamlRoot root, string title, string message, string action)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = root,
+            Title = title,
+            Content = message,
+            PrimaryButtonText = action,
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
     private void OnResultsDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)

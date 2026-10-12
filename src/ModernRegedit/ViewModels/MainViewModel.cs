@@ -154,7 +154,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private RegistryView CurrentView => Is32BitView ? RegistryView.Registry32 : RegistryView.Registry64;
+    public RegistryView CurrentView => Is32BitView ? RegistryView.Registry32 : RegistryView.Registry64;
 
     /// <summary>搜索结果上限：全库超宽匹配时保护界面。</summary>
     private const int MaxSearchResults = 10000;
@@ -296,6 +296,55 @@ public partial class MainViewModel : ObservableObject
         IsSearchRunning = false;
         SearchPanelVisibility = Visibility.Collapsed;
         SearchStatus = string.Empty;
+    }
+
+    /// <summary>执行一批写操作，成功后刷新受影响的键；失败把原因写入状态栏。</summary>
+    public async Task<bool> ApplyWritesAsync(IReadOnlyList<WriteOperation> operations)
+    {
+        WriteResult result = await RegistryWriteService.ApplyAsync(operations, CurrentView);
+        if (!result.Ok)
+        {
+            _statusError = $"Write failed: {result.Error}";
+            OnPropertyChanged(nameof(StatusText));
+            return false;
+        }
+
+        foreach (string path in operations.Select(o => o.KeyPath).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            await RefreshSubtreeAsync(path);
+        }
+
+        if (SelectedNode is not null)
+        {
+            RegistryKeyNode? again = await ResolveNodeAsync(SelectedNode.FullPath);
+            if (again is not null)
+            {
+                Select(again);
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>重建受影响键父节点的子键列表（含增删改名后的名字变化），保持展开状态。</summary>
+    private async Task RefreshSubtreeAsync(string path)
+    {
+        int separator = path.LastIndexOf('\\');
+        string parentPath = separator > 0 ? path[..separator] : path;
+        RegistryKeyNode? parent = await ResolveNodeAsync(parentPath);
+        if (parent is null)
+        {
+            return;
+        }
+
+        parent.Children.Clear();
+        parent.ChildrenLoaded = false;
+        parent.LoadTask = null;
+        parent.HasUnrealizedChildren = true;
+        if (parent.IsExpanded)
+        {
+            await EnsureChildrenLoadedAsync(parent);
+        }
     }
 
     /// <summary>枚举子键（后台线程），完成后经 DispatcherQueue 应用。可并发调用，只枚举一次。</summary>
@@ -490,7 +539,7 @@ public partial class MainViewModel : ObservableObject
                 // 无权限或键已消失：按 0 处理，不中断值加载。
             }
 
-            var decoded = new List<(string Name, RegKind Kind, string Data)>();
+            var decoded = new List<(string Name, RegKind Kind, string Data, byte[] Raw)>();
             int valueCount = 0;
             try
             {
@@ -499,7 +548,7 @@ public partial class MainViewModel : ObservableObject
 
                 foreach (RegistryValueInfo value in values)
                 {
-                    decoded.Add((value.Name, value.Kind, RegValueDecoder.Decode(value.Kind, value.Data)));
+                    decoded.Add((value.Name, value.Kind, RegValueDecoder.Decode(value.Kind, value.Data), value.Data));
                 }
             }
             catch (IOException)
@@ -524,17 +573,19 @@ public partial class MainViewModel : ObservableObject
                 int defaultIndex = decoded.FindIndex(v => v.Name.Length == 0);
                 if (defaultIndex >= 0)
                 {
-                    Values.Add(MakeRow("(Default)", decoded[defaultIndex].Kind, decoded[defaultIndex].Data));
+                    (string name, RegKind kind, string data, byte[] raw) = decoded[defaultIndex];
+                    Values.Add(MakeRow("(Default)", name, kind, raw, data));
                 }
                 else
                 {
-                    Values.Add(MakeRow("(Default)", RegKind.Sz, "(value not set)"));
+                    Values.Add(MakeRow("(Default)", string.Empty, RegKind.Sz, Array.Empty<byte>(), "(value not set)", isUnset: true));
                 }
-                foreach ((string name, RegKind kind, string data) in decoded)
+
+                foreach ((string name, RegKind kind, string data, byte[] raw) in decoded)
                 {
                     if (name.Length > 0)
                     {
-                        Values.Add(MakeRow(name, kind, data));
+                        Values.Add(MakeRow(name, name, kind, raw, data));
                     }
                 }
 
@@ -590,14 +641,18 @@ public partial class MainViewModel : ObservableObject
         return await ResolveNodeAsync(currentPath);
     }
 
-    private static RegistryValueRow MakeRow(string name, RegKind kind, string dataDisplay) => new()
+    private static RegistryValueRow MakeRow(
+        string displayName, string valueName, RegKind kind, byte[] data, string dataDisplay, bool isUnset = false) => new()
     {
-        Name = name,
+        Name = displayName,
+        ValueName = valueName,
+        Kind = kind,
+        Data = data,
+        IsUnset = isUnset,
         KindDisplay = RegValueDecoder.KindName(kind),
         DataDisplay = dataDisplay,
-        KindSymbol = RegValuePresentation.GetSymbol(kind),
-        KindBrush = RegValuePresentation.GetBrush(kind),
     };
+    // MARKER
 
     private static string? NormalizePath(string input)
     {
