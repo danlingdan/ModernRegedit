@@ -5,23 +5,20 @@ namespace ModernRegedit.ViewModels;
 
 public partial class RegistryKeyNode : ObservableObject
 {
-    public static readonly RegistryKeyNode Placeholder = new("…", string.Empty, isPlaceholder: true);
-
-    public RegistryKeyNode(string title, string fullPath, bool isPlaceholder = false, bool hasChildren = false)
+    public RegistryKeyNode(string title, string fullPath, bool isPlaceholder = false)
     {
         Title = title;
         FullPath = fullPath;
         IsPlaceholder = isPlaceholder;
-        HasChildren = hasChildren;
     }
+
+    public static RegistryKeyNode NewPlaceholder() => new("…", string.Empty, isPlaceholder: true);
 
     public string Title { get; }
 
     public string FullPath { get; }
 
     public bool IsPlaceholder { get; }
-
-    public bool HasChildren { get; }
 
     public bool ChildrenLoaded { get; set; }
 

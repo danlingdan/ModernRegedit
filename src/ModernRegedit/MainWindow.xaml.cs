@@ -11,7 +11,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        ViewModel.Initialize();
+        ViewModel.Initialize(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
     }
 
     private void OnExpanding(TreeView sender, TreeViewExpandingEventArgs args)

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.UI.Dispatching;
 using ModernRegedit.Services;
 
 namespace ModernRegedit.ViewModels;
@@ -8,13 +9,15 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly RegistryService _service = new();
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
-    public partial RegistryKeyNode? SelectedNode { get; set; }
+    private DispatcherQueue? _dispatcherQueue;
 
     private int _selectedSubKeyCount;
 
     private int _selectedValueCount;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    public partial RegistryKeyNode? SelectedNode { get; set; }
 
     public ObservableCollection<RegistryKeyNode> Roots { get; } = new();
 
@@ -25,51 +28,51 @@ public partial class MainViewModel : ObservableObject
             ? "Ready"
             : $"{SelectedNode.FullPath} — {_selectedSubKeyCount} subkeys, {_selectedValueCount} values";
 
-    public void Initialize()
+    public void Initialize(DispatcherQueue dispatcherQueue)
     {
+        _dispatcherQueue = dispatcherQueue;
+
         foreach (RegistryRoot root in RegistryService.Roots)
         {
-            int count = _service.GetSubKeyCount(root.Name);
-            var node = new RegistryKeyNode(root.Name, root.Name, hasChildren: count > 0);
-            if (count > 0)
-            {
-                node.Children.Add(RegistryKeyNode.Placeholder);
-            }
-
+            var node = new RegistryKeyNode(root.Name, root.Name);
+            node.Children.Add(RegistryKeyNode.NewPlaceholder());
             Roots.Add(node);
         }
     }
 
     public void EnsureChildrenLoaded(RegistryKeyNode node)
     {
-        if (node.ChildrenLoaded || node.IsPlaceholder || !node.HasChildren)
+        if (node.ChildrenLoaded || node.IsPlaceholder)
         {
             return;
         }
 
-        node.Children.Clear();
-        foreach (RegistryKeyName key in _service.GetSubKeyNames(node.FullPath))
+        node.ChildrenLoaded = true;
+        string fullPath = node.FullPath;
+
+        Task.Run(() =>
         {
-            int count;
+            IReadOnlyList<RegistryKeyName> keys;
             try
             {
-                count = _service.GetSubKeyCount(key.FullPath);
+                keys = _service.GetSubKeyNames(fullPath);
             }
             catch (IOException)
             {
-                count = 0;
+                keys = Array.Empty<RegistryKeyName>();
             }
 
-            var child = new RegistryKeyNode(key.Name, key.FullPath, hasChildren: count > 0);
-            if (count > 0)
+            _dispatcherQueue?.TryEnqueue(() =>
             {
-                child.Children.Add(RegistryKeyNode.Placeholder);
-            }
-
-            node.Children.Add(child);
-        }
-
-        node.ChildrenLoaded = true;
+                node.Children.Clear();
+                foreach (RegistryKeyName key in keys)
+                {
+                    var child = new RegistryKeyNode(key.Name, key.FullPath);
+                    child.Children.Add(RegistryKeyNode.NewPlaceholder());
+                    node.Children.Add(child);
+                }
+            });
+        });
     }
 
     public void Select(RegistryKeyNode? node)
