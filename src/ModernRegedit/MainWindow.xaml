@@ -6,15 +6,21 @@
     xmlns:vm="using:ModernRegedit.ViewModels"
     Title="ModernRegedit">
 
-    <Grid RowSpacing="4" Margin="8">
+    <Grid ColumnSpacing="8" RowSpacing="4" Margin="8">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="320" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
         <TreeView
             x:Name="KeyTree"
             Grid.Row="0"
+            Grid.Column="0"
             ItemsSource="{x:Bind ViewModel.Roots}"
             Expanding="OnExpanding"
             SelectionChanged="OnSelectionChanged">
@@ -33,13 +39,88 @@
             </TreeView.ItemTemplate>
         </TreeView>
 
+        <Grid
+            Grid.Row="0"
+            Grid.Column="1"
+            RowSpacing="4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid
+                Grid.Row="0"
+                Padding="12,6"
+                ColumnSpacing="8"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="280" />
+                    <ColumnDefinition Width="180" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock
+                    Grid.Column="0"
+                    Text="Name"
+                    FontWeight="SemiBold" />
+                <TextBlock
+                    Grid.Column="1"
+                    Text="Type"
+                    FontWeight="SemiBold" />
+                <TextBlock
+                    Grid.Column="2"
+                    Text="Data"
+                    FontWeight="SemiBold" />
+            </Grid>
+
+            <ListView
+                Grid.Row="1"
+                ItemsSource="{x:Bind ViewModel.Values}"
+                SelectionMode="Single">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RegistryValueRow">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="280" />
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock
+                                Grid.Column="0"
+                                Text="{x:Bind Name}"
+                                VerticalAlignment="Center"
+                                TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Text="{x:Bind KindDisplay}"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                Grid.Column="2"
+                                Text="{x:Bind DataDisplay}"
+                                VerticalAlignment="Center"
+                                FontFamily="Cascadia Mono"
+                                FontSize="12"
+                                TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
+
         <Border
             Grid.Row="1"
             Grid.ColumnSpan="2"
-            Padding="8,4"
+            Padding="12,4"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
             CornerRadius="4">
-            <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" FontSize="12" TextTrimming="CharacterEllipsis" />
+            <TextBlock
+                Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                FontSize="12"
+                TextTrimming="CharacterEllipsis" />
         </Border>
     </Grid>
 

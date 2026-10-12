@@ -18,6 +18,8 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<RegistryKeyNode> Roots { get; } = new();
 
+    public ObservableCollection<RegistryValueRow> Values { get; } = new();
+
     public string StatusText =>
         SelectedNode is null
             ? "Ready"
@@ -81,11 +83,30 @@ public partial class MainViewModel : ObservableObject
         try
         {
             _selectedSubKeyCount = _service.GetSubKeyCount(node.FullPath);
-            _selectedValueCount = 0;
         }
         catch (IOException)
         {
             _selectedSubKeyCount = 0;
+        }
+
+        Values.Clear();
+        try
+        {
+            IReadOnlyList<RegistryValueInfo> values = _service.GetValues(node.FullPath);
+            foreach (RegistryValueInfo value in values)
+            {
+                Values.Add(new RegistryValueRow
+                {
+                    Name = string.IsNullOrEmpty(value.Name) ? "(Default)" : value.Name,
+                    KindDisplay = RegValueDecoder.KindName(value.Kind),
+                    DataDisplay = RegValueDecoder.Decode(value.Kind, value.Data),
+                });
+            }
+
+            _selectedValueCount = values.Count;
+        }
+        catch (IOException)
+        {
             _selectedValueCount = 0;
         }
 
