@@ -106,7 +106,10 @@
 
 | 文档 | 内容 |
 |---|---|
+| [AGENTS.md](AGENTS.md) | AI 代理工作规则与文档入口 |
 | [docs/开发环境.md](docs/开发环境.md) | 本机环境实测、依赖版本决策 |
+| [docs/开发工作流.md](docs/开发工作流.md) | 功能开发循环、部署、UIA 验证 |
+| [docs/商店发布信息.md](docs/商店发布信息.md) | Partner Center 身份、PFN、Store ID |
 | [docs/research/01-竞品分析.md](docs/research/01-竞品分析.md) | 竞品功能、定价、市场空白 |
 | [docs/research/02-产品功能与用户痛点.md](docs/research/02-产品功能与用户痛点.md) | 用户画像、痛点证据、功能分档 |
 | [docs/research/03-技术栈选型.md](docs/research/03-技术栈选型.md) | 桌面框架对比数据 |
