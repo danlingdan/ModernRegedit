@@ -3,8 +3,44 @@
     x:Class="ModernRegedit.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:ModernRegedit.ViewModels"
     Title="ModernRegedit">
 
-    <Grid />
+    <Grid RowSpacing="4" Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TreeView
+            x:Name="KeyTree"
+            Grid.Row="0"
+            ItemsSource="{x:Bind ViewModel.Roots}"
+            Expanding="OnExpanding"
+            SelectionChanged="OnSelectionChanged">
+            <TreeView.ItemTemplate>
+                <DataTemplate x:DataType="vm:RegistryKeyNode">
+                    <TreeViewItem ItemsSource="{x:Bind Children}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon
+                                FontFamily="Segoe Fluent Icons"
+                                Glyph="&#xE8B7;"
+                                FontSize="16" />
+                            <TextBlock Text="{x:Bind Title}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </TreeViewItem>
+                </DataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+
+        <Border
+            Grid.Row="1"
+            Grid.ColumnSpan="2"
+            Padding="8,4"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            CornerRadius="4">
+            <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" FontSize="12" TextTrimming="CharacterEllipsis" />
+        </Border>
+    </Grid>
 
 </Window>
