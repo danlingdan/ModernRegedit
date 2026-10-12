@@ -26,7 +26,10 @@
             SelectionChanged="OnSelectionChanged">
             <TreeView.ItemTemplate>
                 <DataTemplate x:DataType="vm:RegistryKeyNode">
-                    <TreeViewItem ItemsSource="{x:Bind Children}">
+                    <TreeViewItem
+                        ItemsSource="{x:Bind Children}"
+                        HasUnrealizedChildren="{x:Bind HasUnrealizedChildren, Mode=TwoWay}"
+                        IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon
                                 FontFamily="Segoe Fluent Icons"

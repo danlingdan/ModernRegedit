@@ -18,7 +18,7 @@ public sealed partial class MainWindow : Window
     {
         if (args.Item is RegistryKeyNode node)
         {
-            ViewModel.EnsureChildrenLoaded(node);
+            _ = ViewModel.EnsureChildrenLoadedAsync(node);
         }
     }
 
