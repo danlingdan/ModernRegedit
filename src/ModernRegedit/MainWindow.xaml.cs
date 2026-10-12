@@ -151,18 +151,18 @@ public sealed partial class MainWindow : Window
         if (row is not null && !row.IsUnset)
         {
             var modify = new MenuFlyoutItem { Text = "Modify…" };
-            modify.Click += (_, _) => _ = EditValueAsync(row);
+            modify.Click += async (_, _) => await EditValueAsync(row);
             menu.Items.Add(modify);
 
             var delete = new MenuFlyoutItem { Text = "Delete" };
-            delete.Click += (_, _) => _ = DeleteValueAsync(row);
+            delete.Click += async (_, _) => await DeleteValueAsync(row);
             menu.Items.Add(delete);
 
             menu.Items.Add(new MenuFlyoutSeparator());
         }
 
         var newValue = new MenuFlyoutItem { Text = "New Value…" };
-        newValue.Click += (_, _) => _ = NewValueAsync();
+        newValue.Click += async (_, _) => await NewValueAsync();
         menu.Items.Add(newValue);
 
         menu.ShowAt(ValuesList, e.GetPosition(ValuesList));
@@ -245,7 +245,7 @@ public sealed partial class MainWindow : Window
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
-    private static async Task<string?> PromptTextAsync(XamlRoot root, string title, string header, string initial)
+    private static async Task<string?> PromptTextAsync(XamlRoot root, string title, string header, string initial, bool rejectBackslash = true)
     {
         string? result = null;
         var box = new TextBox { Header = header, Text = initial };
@@ -263,7 +263,7 @@ public sealed partial class MainWindow : Window
         dialog.PrimaryButtonClick += (_, args) =>
         {
             string name = box.Text.Trim();
-            if (name.Length == 0 || name.Contains('\\'))
+            if (name.Length == 0 || (rejectBackslash && name.Contains('\\')))
             {
                 args.Cancel = true;
                 return;
@@ -293,23 +293,36 @@ public sealed partial class MainWindow : Window
 
         var menu = new MenuFlyout();
         var newKey = new MenuFlyoutItem { Text = "New Key…" };
-        newKey.Click += (_, _) => _ = NewKeyAsync(node);
+        newKey.Click += async (_, _) => await NewKeyAsync(node);
         menu.Items.Add(newKey);
 
         var newValue = new MenuFlyoutItem { Text = "New Value…" };
-        newValue.Click += (_, _) => _ = NewValueUnderAsync(node);
+        newValue.Click += async (_, _) => await NewValueUnderAsync(node);
         menu.Items.Add(newValue);
 
         if (node is not null && node.FullPath.Contains('\\'))
         {
             var rename = new MenuFlyoutItem { Text = "Rename…" };
-            rename.Click += (_, _) => _ = RenameKeyAsync(node);
+            rename.Click += async (_, _) => await RenameKeyAsync(node);
             menu.Items.Add(rename);
 
             var delete = new MenuFlyoutItem { Text = "Delete" };
-            delete.Click += (_, _) => _ = DeleteKeyAsync(node);
+            delete.Click += async (_, _) => await DeleteKeyAsync(node);
             menu.Items.Add(delete);
+
+            menu.Items.Add(new MenuFlyoutSeparator());
         }
+
+        if (node is not null)
+        {
+            var export = new MenuFlyoutItem { Text = "Export…" };
+            export.Click += async (_, _) => await ExportAsync(node);
+            menu.Items.Add(export);
+        }
+
+        var import = new MenuFlyoutItem { Text = "Import .reg…" };
+        import.Click += async (_, _) => await ImportAsync();
+        menu.Items.Add(import);
 
         menu.ShowAt(KeyTree, e.GetPosition(KeyTree));
     }
@@ -394,6 +407,117 @@ public sealed partial class MainWindow : Window
         {
             SelectTreeNode(node, recordHistory: false);
         }
+    }
+
+    private async Task ExportAsync(RegistryKeyNode? node)
+    {
+        if (node is null)
+        {
+            ViewModel.SetStatusMessage("Export: no node under cursor.");
+            return;
+        }
+
+        // 已知问题：本机环境下 WinUI FileSavePicker 与 Win32 IFileDialog::Show 均静默挂起（无窗口、不返回、
+        // 不抛异常，疑似 #8026 同族且机器相关）。M3 改为直接导出到 Downloads，自动命名避免覆盖。
+        string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        Directory.CreateDirectory(dir);
+        string path = Path.Combine(dir, $"{node.Title}.reg");
+        for (int i = 2; File.Exists(path); i++)
+        {
+            path = Path.Combine(dir, $"{node.Title} ({i}).reg");
+        }
+
+        await RegFile.ExportAsync(new RegistryService(), node.FullPath, ViewModel.CurrentView, path);
+        ViewModel.SetStatusMessage($"Exported '{node.FullPath}' to {path}");
+    }
+
+    private async Task ImportAsync()
+    {
+        string? path = await PromptTextAsync(
+            Content.XamlRoot, "Import a .reg file", "Full path to the .reg file", string.Empty, rejectBackslash: false);
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        if (!File.Exists(path))
+        {
+            ViewModel.SetStatusMessage($"Import: file not found: {path}");
+            return;
+        }
+
+        var service = new RegistryService();
+        RegFile.ParsedRegFile parsed;
+        try
+        {
+            parsed = RegFile.Parse(path);
+        }
+        catch (Exception ex)
+        {
+            ViewModel.SetStatusMessage($"Cannot parse '{path}': {ex.Message}");
+            return;
+        }
+
+        RegFile.ImportPlan plan = RegFile.BuildImportPlan(service, parsed, ViewModel.CurrentView);
+        if (plan.Operations.Count == 0)
+        {
+            ViewModel.SetStatusMessage($"'{path}': no changes against the current registry.");
+            return;
+        }
+
+        bool confirmed = await ConfirmImportAsync(plan, path);
+        if (!confirmed)
+        {
+            return;
+        }
+
+        if (await ViewModel.ApplyWritesAsync(plan.Operations, refreshPerPath: false))
+        {
+            ViewModel.SetStatusMessage($"Imported {plan.Operations.Count} changes from '{path}' ({plan.Added} added, {plan.Modified} modified, {plan.Deleted} deleted).");
+        }
+    }
+
+    private async Task<bool> ConfirmImportAsync(RegFile.ImportPlan plan, string fileName)
+    {
+        var summary = new TextBlock
+        {
+            Margin = new Thickness(0, 0, 0, 8),
+            Text = $"'{fileName}' proposes {plan.Rows.Count} changes: {plan.Added} added, {plan.Modified} modified, {plan.Deleted} deleted (keys and values).",
+            TextWrapping = TextWrapping.Wrap,
+        };
+
+        var list = new ListBox
+        {
+            Height = 320,
+            FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Cascadia Mono"),
+            FontSize = 12,
+        };
+        foreach (RegFile.DiffRow row in plan.Rows.Take(300))
+        {
+            string valuePart = row.Value.Length == 0 ? string.Empty : $"  [{row.Value}]";
+            list.Items.Add($"({row.Change}) {row.Path}{valuePart}  {row.Detail}");
+        }
+
+        if (plan.Rows.Count > 300)
+        {
+            list.Items.Add($"… and {plan.Rows.Count - 300} more");
+        }
+
+        var panel = new StackPanel { Spacing = 8 };
+        panel.Children.Add(summary);
+        panel.Children.Add(list);
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Import preview",
+            Content = panel,
+            PrimaryButtonText = "Apply",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+        };
+
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
     private void OnResultsDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)

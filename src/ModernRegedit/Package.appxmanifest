@@ -3,9 +3,10 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
 
-  <Identity Name="4E406B62.ModernRegedit" Publisher="CN=095BBAC2-D330-4B00-9883-EC032394EA57" Version="0.1.0.0" />
+  <Identity Name="4E406B62.ModernRegedit" Publisher="CN=095BBAC2-D330-4B00-9883-EC032394EA57" Version="0.3.0.0" />
 
   <Properties>
     <DisplayName>ModernRegedit</DisplayName>
@@ -32,7 +33,7 @@
       <Extensions>
         <uap3:Extension Category="windows.appExecutionAlias">
           <uap3:AppExecutionAlias>
-            <uap3:ExecutionAlias Alias="ModernRegedit.exe" />
+            <desktop:ExecutionAlias Alias="ModernRegedit.exe" />
           </uap3:AppExecutionAlias>
         </uap3:Extension>
       </Extensions>

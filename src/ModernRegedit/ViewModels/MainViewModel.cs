@@ -299,7 +299,7 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>执行一批写操作，成功后刷新受影响的键；失败把原因写入状态栏。</summary>
-    public async Task<bool> ApplyWritesAsync(IReadOnlyList<WriteOperation> operations)
+    public async Task<bool> ApplyWritesAsync(IReadOnlyList<WriteOperation> operations, bool refreshPerPath = true)
     {
         WriteResult result = await RegistryWriteService.ApplyAsync(operations, CurrentView);
         if (!result.Ok)
@@ -309,9 +309,19 @@ public partial class MainViewModel : ObservableObject
             return false;
         }
 
-        foreach (string path in operations.Select(o => o.KeyPath).Distinct(StringComparer.OrdinalIgnoreCase))
+        if (refreshPerPath)
         {
-            await RefreshSubtreeAsync(path);
+            foreach (string path in operations.Select(o => o.KeyPath).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                await RefreshSubtreeAsync(path);
+            }
+        }
+        else
+        {
+            foreach (string rootName in operations.Select(o => RootNameOf(o.KeyPath)).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                ResetRoot(rootName);
+            }
         }
 
         if (SelectedNode is not null)
@@ -331,6 +341,34 @@ public partial class MainViewModel : ObservableObject
         }
 
         return true;
+    }
+
+    public void SetStatusMessage(string message)
+    {
+        _statusError = message;
+        OnPropertyChanged(nameof(StatusText));
+    }
+
+    private static string RootNameOf(string path)
+    {
+        int separator = path.IndexOf('\\');
+        return separator < 0 ? path : path[..separator];
+    }
+
+    /// <summary>导入后整根重置（子键全部收起），下次展开时按新状态重建。</summary>
+    private void ResetRoot(string rootName)
+    {
+        RegistryKeyNode? root = Roots.FirstOrDefault(r => string.Equals(r.Title, rootName, StringComparison.OrdinalIgnoreCase));
+        if (root is null)
+        {
+            return;
+        }
+
+        root.Children.Clear();
+        root.ChildrenLoaded = false;
+        root.LoadTask = null;
+        root.HasUnrealizedChildren = true;
+        root.IsExpanded = false;
     }
 
     /// <summary>重建受影响键父节点的子键列表（含增删改名后的名字变化），保持展开状态。</summary>
@@ -659,7 +697,6 @@ public partial class MainViewModel : ObservableObject
         KindDisplay = RegValueDecoder.KindName(kind),
         DataDisplay = dataDisplay,
     };
-    // MARKER
 
     private static string? NormalizePath(string input)
     {
