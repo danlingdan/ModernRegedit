@@ -190,8 +190,11 @@
             </Grid>
 
             <ListView
+                x:Name="ValuesList"
+                AutomationProperties.AutomationId="ValuesList"
                 Grid.Row="1"
                 ItemsSource="{x:Bind ViewModel.Values}"
+                SelectedItem="{x:Bind ViewModel.SelectedValueRow, Mode=TwoWay}"
                 SelectionMode="Single">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="vm:RegistryValueRow">
@@ -278,7 +281,9 @@
                     x:Name="ResultsList"
                     Grid.Row="1"
                     ItemsSource="{x:Bind ViewModel.SearchResults}"
-                    SelectionMode="Single">
+                    SelectionMode="Single"
+                    DoubleTapped="OnResultsDoubleTapped"
+                    KeyDown="OnResultsKeyDown">
                     <ListView.Header>
                         <Grid Padding="12,6" ColumnSpacing="8">
                             <Grid.ColumnDefinitions>

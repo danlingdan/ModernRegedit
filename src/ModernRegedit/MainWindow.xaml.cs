@@ -136,6 +136,43 @@ public sealed partial class MainWindow : Window
         ViewModel.CloseSearchPanel();
     }
 
+    private void OnResultsDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        JumpToResult(ResultsList.SelectedItem as SearchResultRow);
+    }
+
+    private void OnResultsKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is VirtualKey.Enter)
+        {
+            e.Handled = true;
+            JumpToResult(ResultsList.SelectedItem as SearchResultRow);
+        }
+    }
+
+    private async void JumpToResult(SearchResultRow? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        // 空串表示默认值命中；null 表示仅键命中（不选值行）
+        ViewModel.PendingJumpValueName = row.ValueName switch
+        {
+            "" => null,
+            "(key)" => null,
+            "(Default)" => string.Empty,
+            string name => name,
+        };
+
+        RegistryKeyNode? node = await ViewModel.NavigateToAsync(row.KeyPath);
+        if (node is not null)
+        {
+            SelectTreeNode(node, recordHistory: true);
+        }
+    }
+
     /// <summary>标题栏配色跟随内容主题，避免暗色内容配亮色标题栏的割裂感。</summary>
     private void ApplyTitleBarTheme()
     {

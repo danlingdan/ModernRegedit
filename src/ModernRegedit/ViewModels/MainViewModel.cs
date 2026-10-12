@@ -107,6 +107,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial Visibility SearchPanelVisibility { get; private set; } = Visibility.Collapsed;
 
+    /// <summary>跳转命中的值名（空串 = 默认值，null = 仅键命中）；值列表加载完成后选中该行。</summary>
+    public string? PendingJumpValueName { get; set; }
+
+    [ObservableProperty]
+    public partial RegistryValueRow? SelectedValueRow { get; set; }
+
     public Visibility CancelButtonVisibility => IsSearchRunning ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility CloseButtonVisibility => IsSearchRunning ? Visibility.Collapsed : Visibility.Visible;
@@ -512,6 +518,7 @@ public partial class MainViewModel : ObservableObject
                 _selectedValueCount = valueCount;
                 _isLoadingValues = false;
                 Values.Clear();
+                SelectedValueRow = null;
 
                 // 图标与画刷取自应用资源，只能在 UI 线程解析。
                 int defaultIndex = decoded.FindIndex(v => v.Name.Length == 0);
@@ -528,6 +535,19 @@ public partial class MainViewModel : ObservableObject
                     if (name.Length > 0)
                     {
                         Values.Add(MakeRow(name, kind, data));
+                    }
+                }
+
+                // 搜索结果跳转：选中命中的值行
+                string? pending = PendingJumpValueName;
+                PendingJumpValueName = null;
+                if (pending is not null)
+                {
+                    RegistryValueRow? target = Values.FirstOrDefault(v =>
+                        pending.Length == 0 ? v.Name == "(Default)" : string.Equals(v.Name, pending, StringComparison.OrdinalIgnoreCase));
+                    if (target is not null)
+                    {
+                        SelectedValueRow = target;
                     }
                 }
 
