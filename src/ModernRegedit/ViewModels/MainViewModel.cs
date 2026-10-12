@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
 using ModernRegedit.Services;
 
 namespace ModernRegedit.ViewModels;
@@ -18,7 +20,20 @@ public partial class MainViewModel : ObservableObject
 
     private readonly RegistryService _service = new();
 
+    private readonly RegistrySearchService _searchService = new();
+
     private readonly List<string> _history = new();
+
+    private CancellationTokenSource? _searchCts;
+
+    /// <summary>输入防抖代数：只执行最后一次输入触发的搜索。</summary>
+    private int _searchDebounceGeneration;
+
+    private int _searchResultCount;
+
+    private bool _searchCapped;
+
+    private Stopwatch? _searchStopwatch;
 
     private DispatcherQueue? _dispatcherQueue;
 
@@ -52,6 +67,26 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText))]
     public partial bool Is32BitView { get; set; }
+
+    [ObservableProperty]
+    public partial string SearchText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CancelButtonVisibility))]
+    [NotifyPropertyChangedFor(nameof(CloseButtonVisibility))]
+    public partial bool IsSearchRunning { get; private set; }
+
+    [ObservableProperty]
+    public partial string SearchStatus { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial Visibility SearchPanelVisibility { get; private set; } = Visibility.Collapsed;
+
+    public Visibility CancelButtonVisibility => IsSearchRunning ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility CloseButtonVisibility => IsSearchRunning ? Visibility.Collapsed : Visibility.Visible;
+
+    public ObservableCollection<SearchResultRow> SearchResults { get; } = new();
 
     public ObservableCollection<RegistryKeyNode> Roots { get; } = new();
 
@@ -89,6 +124,139 @@ public partial class MainViewModel : ObservableObject
     }
 
     private RegistryView CurrentView => Is32BitView ? RegistryView.Registry32 : RegistryView.Registry64;
+
+    /// <summary>搜索结果上限：全库超宽匹配时保护界面。</summary>
+    private const int MaxSearchResults = 10000;
+
+    partial void OnSearchTextChanged(string value)
+    {
+        _searchDebounceGeneration++;
+        int generation = _searchDebounceGeneration;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            _searchCts?.Cancel();
+            CloseSearchPanel();
+            return;
+        }
+
+        _ = DebounceThenSearchAsync(generation);
+    }
+
+    private async Task DebounceThenSearchAsync(int generation)
+    {
+        await Task.Delay(250);
+        if (generation != _searchDebounceGeneration || _dispatcherQueue is null)
+        {
+            return;
+        }
+
+        await StartSearchAsync();
+    }
+
+    /// <summary>立即搜索（回车触发，跳过防抖等待）。</summary>
+    public async Task SearchNowAsync()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            _searchCts?.Cancel();
+            CloseSearchPanel();
+            return;
+        }
+
+        _searchDebounceGeneration++;
+        await StartSearchAsync();
+    }
+
+    public async Task StartSearchAsync()
+    {
+        string query = SearchText.Trim();
+        _searchCts?.Cancel();
+        if (query.Length == 0)
+        {
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+        _searchCts = cts;
+        SearchResults.Clear();
+        _searchResultCount = 0;
+        _searchCapped = false;
+        _searchStopwatch = Stopwatch.StartNew();
+        IsSearchRunning = true;
+        SearchPanelVisibility = Visibility.Visible;
+        SearchStatus = "Searching…";
+
+        await _searchService.SearchAsync(
+            query,
+            RegistryService.Roots,
+            CurrentView,
+            cts.Token,
+            batch =>
+            {
+                _dispatcherQueue?.TryEnqueue(() =>
+                {
+                    if (_searchCts != cts)
+                    {
+                        return;
+                    }
+
+                    foreach (SearchResult result in batch)
+                    {
+                        if (_searchResultCount >= MaxSearchResults)
+                        {
+                            break;
+                        }
+
+                        _searchResultCount++;
+                        SearchResults.Add(new SearchResultRow
+                        {
+                            KeyPath = result.KeyPath,
+                            ValueName = result.ValueName,
+                            DataPreview = result.DataPreview,
+                        });
+                    }
+
+                    if (_searchResultCount >= MaxSearchResults)
+                    {
+                        _searchCapped = true;
+                        cts.Cancel();
+                    }
+
+                    SearchStatus = _searchCapped
+                        ? $"First {MaxSearchResults} results — refine the query"
+                        : $"Searching… {_searchResultCount} results";
+                });
+            });
+
+        if (_searchCts != cts)
+        {
+            return; // 已被新搜索取代
+        }
+
+        IsSearchRunning = false;
+        string elapsed = _searchStopwatch!.Elapsed.TotalSeconds.ToString("0.0");
+        SearchStatus = _searchCapped
+            ? $"First {MaxSearchResults} results ({elapsed}s) — refine the query"
+            : cts.IsCancellationRequested
+                ? $"Cancelled — {_searchResultCount} results ({elapsed}s)"
+                : $"{_searchResultCount} results ({elapsed}s)";
+    }
+
+    public void CancelSearch()
+    {
+        _searchCts?.Cancel();
+    }
+
+    public void CloseSearchPanel()
+    {
+        _searchCts?.Cancel();
+        SearchResults.Clear();
+        _searchResultCount = 0;
+        IsSearchRunning = false;
+        SearchPanelVisibility = Visibility.Collapsed;
+        SearchStatus = string.Empty;
+    }
 
     /// <summary>枚举子键（后台线程），完成后经 DispatcherQueue 应用。可并发调用，只枚举一次。</summary>
     public Task EnsureChildrenLoadedAsync(RegistryKeyNode node)

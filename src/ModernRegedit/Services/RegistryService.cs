@@ -145,7 +145,7 @@ public sealed class RegistryService
         return hKey;
     }
 
-    private static (int SubKeyCount, int ValueCount) GetCounts(IntPtr hKey)
+    internal static (int SubKeyCount, int ValueCount) GetCounts(IntPtr hKey)
     {
         if (RegistryNative.RegQueryInfoKey(
                 hKey,
@@ -161,7 +161,7 @@ public sealed class RegistryService
         return (subKeys, values);
     }
 
-    private static byte[] QueryData(IntPtr hKey, string valueName)
+    internal static byte[] QueryData(IntPtr hKey, string valueName)
     {
         int size = 0;
         int err = RegistryNative.RegQueryValueEx(hKey, valueName, IntPtr.Zero, out _, Array.Empty<byte>(), ref size);

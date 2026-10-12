@@ -33,6 +33,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <AppBarButton
@@ -96,8 +97,17 @@
                 x:Name="AddressBar"
                 Grid.Column="5"
                 PlaceholderText="Type a key path, e.g. HKLM\SOFTWARE\Microsoft"
-                Text="{x:Bind ViewModel.AddressText, Mode=TwoWay}"
+                Text="{x:Bind ViewModel.AddressText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                 KeyDown="OnAddressKeyDown" />
+
+            <TextBox
+                x:Name="SearchBox"
+                Grid.Column="6"
+                Width="240"
+                AutomationProperties.AutomationId="SearchBox"
+                PlaceholderText="Search keys, values, data"
+                Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                KeyDown="OnSearchKeyDown" />
         </Grid>
 
         <TreeView
@@ -132,6 +142,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Grid
@@ -201,6 +212,99 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
+
+            <Grid
+                Grid.Row="2"
+                Height="220"
+                RowSpacing="4"
+                Visibility="{x:Bind ViewModel.SearchPanelVisibility, Mode=OneWay}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock
+                        Grid.Column="0"
+                        Text="{x:Bind ViewModel.SearchStatus, Mode=OneWay}"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        TextTrimming="CharacterEllipsis" />
+
+                    <AppBarButton
+                        Grid.Column="1"
+                        Icon="Cancel"
+                        Label="Cancel"
+                        IsCompact="True"
+                        ToolTipService.ToolTip="Cancel search (results so far are kept)"
+                        Visibility="{x:Bind ViewModel.CancelButtonVisibility, Mode=OneWay}"
+                        Click="OnCancelSearch" />
+
+                    <AppBarButton
+                        Grid.Column="2"
+                        Icon="Clear"
+                        Label="Close"
+                        IsCompact="True"
+                        ToolTipService.ToolTip="Close search results"
+                        Visibility="{x:Bind ViewModel.CloseButtonVisibility, Mode=OneWay}"
+                        Click="OnCloseSearch" />
+                </Grid>
+
+                <ListView
+                    x:Name="ResultsList"
+                    Grid.Row="1"
+                    ItemsSource="{x:Bind ViewModel.SearchResults}"
+                    SelectionMode="Single">
+                    <ListView.Header>
+                        <Grid Padding="12,6" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Path" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="2" Text="Data" FontWeight="SemiBold" />
+                        </Grid>
+                    </ListView.Header>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SearchResultRow">
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock
+                                    Grid.Column="0"
+                                    Text="{x:Bind KeyPath}"
+                                    VerticalAlignment="Center"
+                                    FontFamily="Cascadia Mono"
+                                    FontSize="12"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    Text="{x:Bind ValueName}"
+                                    VerticalAlignment="Center"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    Text="{x:Bind DataPreview}"
+                                    VerticalAlignment="Center"
+                                    FontSize="12"
+                                    TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
         </Grid>
 
         <Border

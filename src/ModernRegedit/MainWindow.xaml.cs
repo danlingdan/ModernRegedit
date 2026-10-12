@@ -117,6 +117,25 @@ public sealed partial class MainWindow : Window
         ApplyTitleBarTheme();
     }
 
+    private async void OnSearchKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is VirtualKey.Enter)
+        {
+            e.Handled = true;
+            await ViewModel.SearchNowAsync();
+        }
+    }
+
+    private void OnCancelSearch(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CancelSearch();
+    }
+
+    private void OnCloseSearch(object sender, RoutedEventArgs e)
+    {
+        ViewModel.CloseSearchPanel();
+    }
+
     /// <summary>标题栏配色跟随内容主题，避免暗色内容配亮色标题栏的割裂感。</summary>
     private void ApplyTitleBarTheme()
     {
