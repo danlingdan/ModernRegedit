@@ -42,7 +42,7 @@
 | 语言 | C# / .NET 10 LTS |
 | 界面 | WinUI 3 / Windows App SDK 2.5.1 |
 | 架构 | MVVM / CommunityToolkit.Mvvm 8.4.2 |
-| Win32 调用 | CsWin32 0.3.347 源生成（advapi32） |
+| Win32 调用 | 自写 P/Invoke 薄层（advapi32，DllImport） |
 | 打包 | MSIX：runFullTrust + unvirtualizedResources + allowElevation，从第一天就是 packaged |
 | 分发 | Microsoft Store（自动进 winget msstore 源）+ GitHub Releases |
 

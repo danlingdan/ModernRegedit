@@ -40,7 +40,7 @@ Prerequisites: Windows 11, [Visual Studio 2026](https://visualstudio.microsoft.c
 git clone https://github.com/danlingdan/ModernRegedit.git
 ```
 
-Open the solution in Visual Studio and press F5. The solution lands with milestone M0.
+Open `ModernRegedit.slnx` in Visual Studio and press F5. First build restores the Windows App SDK via NuGet.
 
 ## Contributing
 

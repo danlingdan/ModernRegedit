@@ -40,7 +40,7 @@
 git clone https://github.com/danlingdan/ModernRegedit.git
 ```
 
-用 Visual Studio 打开解决方案按 F5。解决方案随 M0 里程碑落地。
+用 Visual Studio 2026 打开 `ModernRegedit.slnx` 按 F5。首次构建经 NuGet 还原 Windows App SDK。
 
 ## 参与贡献
 
