@@ -1,7 +1,6 @@
-# allowElevation 预审邮件草稿
+# allowElevation 预审邮件
 
-M0 唯一剩余事项。收件人：`reportapp@microsoft.com`，发出后约 5 个工作日出结果（见 research/06）。
-发送前只补一处：末尾联系邮箱。身份信息（PFN / Store ID）已填入。
+已发送（2026-10-13）。按 research/06 排期，结果预计 2026-10-20 前后。被拒预案见 PLAN.md §6（商店版只读 + winget/sideload 完整版）。
 
 ---
 

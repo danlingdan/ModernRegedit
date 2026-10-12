@@ -99,6 +99,130 @@ public sealed class RegistryService
         }
     }
 
+    public void CreateKey(string fullPath, RegistryView view = RegistryView.Default)
+    {
+        (IntPtr parent, string childName) = OpenParent(fullPath, view, RegistryNative.KeyWrite | RegistryNative.KeyRead);
+        try
+        {
+            int rc = RegistryNative.RegCreateKeyEx(
+                parent, childName, 0, IntPtr.Zero, RegistryNative.RegOptionNonVolatile,
+                RegistryNative.KeyWrite, IntPtr.Zero, out IntPtr hKey, out _);
+            if (rc != RegistryNative.ErrorSuccess)
+            {
+                throw new IOException($"Cannot create key '{fullPath}'.", rc);
+            }
+
+            RegistryNative.RegCloseKey(hKey);
+        }
+        finally
+        {
+            RegistryNative.RegCloseKey(parent);
+        }
+    }
+
+    public void DeleteKey(string fullPath, RegistryView view = RegistryView.Default)
+    {
+        (IntPtr parent, string childName) = OpenParent(fullPath, view, RegistryNative.Delete);
+        try
+        {
+            int rc = RegistryNative.RegDeleteTree(parent, childName);
+            if (rc != RegistryNative.ErrorSuccess)
+            {
+                throw new IOException($"Cannot delete key '{fullPath}'.", rc);
+            }
+        }
+        finally
+        {
+            RegistryNative.RegCloseKey(parent);
+        }
+    }
+
+    public void RenameKey(string fullPath, string newName, RegistryView view = RegistryView.Default)
+    {
+        (IntPtr parent, string childName) = OpenParent(fullPath, view, RegistryNative.KeyWrite);
+        try
+        {
+            int rc = RegistryNative.RegRenameKey(parent, childName, newName);
+            if (rc != RegistryNative.ErrorSuccess)
+            {
+                throw new IOException($"Cannot rename key '{fullPath}'.", rc);
+            }
+        }
+        finally
+        {
+            RegistryNative.RegCloseKey(parent);
+        }
+    }
+
+    public void SetValue(string fullPath, string valueName, RegKind kind, byte[] data, RegistryView view = RegistryView.Default)
+    {
+        IntPtr hKey = Open(fullPath, view, RegistryNative.KeyWrite);
+        try
+        {
+            int rc = RegistryNative.RegSetValueEx(hKey, valueName, 0, (int)kind, data, data.Length);
+            if (rc != RegistryNative.ErrorSuccess)
+            {
+                throw new IOException($"Cannot set value '{valueName}' under '{fullPath}'.", rc);
+            }
+        }
+        finally
+        {
+            RegistryNative.RegCloseKey(hKey);
+        }
+    }
+
+    public void DeleteValue(string fullPath, string valueName, RegistryView view = RegistryView.Default)
+    {
+        IntPtr hKey = Open(fullPath, view, RegistryNative.KeyWrite);
+        try
+        {
+            int rc = RegistryNative.RegDeleteValue(hKey, valueName);
+            if (rc != RegistryNative.ErrorSuccess)
+            {
+                throw new IOException($"Cannot delete value '{valueName}' under '{fullPath}'.", rc);
+            }
+        }
+        finally
+        {
+            RegistryNative.RegCloseKey(hKey);
+        }
+    }
+
+    private static (IntPtr Parent, string ChildName) OpenParent(string fullPath, RegistryView view, int access)
+    {
+        int separator = fullPath.LastIndexOf('\\');
+        if (separator < 0)
+        {
+            throw new IOException($"Cannot modify registry root '{fullPath}'.");
+        }
+
+        IntPtr parent = Open(fullPath[..separator], view, access);
+        return (parent, fullPath[(separator + 1)..]);
+    }
+
+    private static IntPtr Open(string fullPath, RegistryView view, int access)
+    {
+        int separator = fullPath.IndexOf('\\');
+        string rootName = separator < 0 ? fullPath : fullPath[..separator];
+        string? subKey = separator < 0 ? null : fullPath[(separator + 1)..];
+
+        IntPtr root = Roots.First(r => r.Name.Equals(rootName, StringComparison.OrdinalIgnoreCase)).Handle;
+        int sam = access | WowFlags(view);
+        if (RegistryNative.RegOpenKeyEx(root, subKey, 0, sam, out IntPtr hKey) != RegistryNative.ErrorSuccess)
+        {
+            throw new IOException($"Cannot open registry key '{fullPath}'.");
+        }
+
+        return hKey;
+    }
+
+    internal static int WowFlags(RegistryView view) => view switch
+    {
+        RegistryView.Registry32 => RegistryNative.KeyWow64_32Key,
+        RegistryView.Registry64 => RegistryNative.KeyWow64_64Key,
+        _ => 0,
+    };
+
     /// <summary>
     /// 枚举键下全部值。注意 RegEnumValueW 在数据缓冲不足（rc=234）时不保证回写名字长度，
     /// 必须按所需数据大小重枚举同一索引，成功返回后名字与数据才可靠。
@@ -139,29 +263,7 @@ public sealed class RegistryService
 
     private static IntPtr Open(string fullPath, RegistryView view)
     {
-        int separator = fullPath.IndexOf('\\');
-        string rootName = separator < 0 ? fullPath : fullPath[..separator];
-        string? subKey = separator < 0 ? null : fullPath[(separator + 1)..];
-
-        IntPtr root = Roots.First(r => r.Name.Equals(rootName, StringComparison.OrdinalIgnoreCase)).Handle;
-
-        int sam = RegistryNative.KeyRead;
-        if (view == RegistryView.Registry32)
-        {
-            sam |= RegistryNative.KeyWow64_32Key;
-        }
-
-        if (view == RegistryView.Registry64)
-        {
-            sam |= RegistryNative.KeyWow64_64Key;
-        }
-
-        if (RegistryNative.RegOpenKeyEx(root, subKey, 0, sam, out IntPtr hKey) != RegistryNative.ErrorSuccess)
-        {
-            throw new IOException($"Cannot open registry key '{fullPath}'.");
-        }
-
-        return hKey;
+        return Open(fullPath, view, RegistryNative.KeyRead);
     }
 
     internal static (int SubKeyCount, int ValueCount) GetCounts(IntPtr hKey)

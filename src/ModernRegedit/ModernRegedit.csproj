@@ -15,6 +15,7 @@
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.UI.Xaml;
+using ModernRegedit.Services;
 
 namespace ModernRegedit;
 
