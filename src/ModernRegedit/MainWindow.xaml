@@ -8,6 +8,7 @@
 
     <Grid ColumnSpacing="8" RowSpacing="4" Margin="8">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -17,9 +18,17 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
+        <TextBox
+            x:Name="AddressBar"
+            Grid.Row="0"
+            Grid.ColumnSpan="2"
+            PlaceholderText="Type a key path, e.g. HKLM\SOFTWARE\Microsoft"
+            Text="{x:Bind ViewModel.AddressText, Mode=TwoWay}"
+            KeyDown="OnAddressKeyDown" />
+
         <TreeView
             x:Name="KeyTree"
-            Grid.Row="0"
+            Grid.Row="1"
             Grid.Column="0"
             ItemsSource="{x:Bind ViewModel.Roots}"
             Expanding="OnExpanding"
@@ -43,7 +52,7 @@
         </TreeView>
 
         <Grid
-            Grid.Row="0"
+            Grid.Row="1"
             Grid.Column="1"
             RowSpacing="4">
             <Grid.RowDefinitions>
@@ -115,7 +124,7 @@
         </Grid>
 
         <Border
-            Grid.Row="1"
+            Grid.Row="2"
             Grid.ColumnSpan="2"
             Padding="12,4"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"

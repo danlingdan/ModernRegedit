@@ -7,6 +7,15 @@ namespace ModernRegedit.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    private static readonly Dictionary<string, string> RootAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["HKCR"] = "HKEY_CLASSES_ROOT",
+        ["HKCU"] = "HKEY_CURRENT_USER",
+        ["HKLM"] = "HKEY_LOCAL_MACHINE",
+        ["HKU"] = "HKEY_USERS",
+        ["HKCC"] = "HKEY_CURRENT_CONFIG",
+    };
+
     private readonly RegistryService _service = new();
 
     private DispatcherQueue? _dispatcherQueue;
@@ -20,9 +29,14 @@ public partial class MainViewModel : ObservableObject
 
     private bool _isLoadingValues;
 
+    private string? _statusError;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText))]
     public partial RegistryKeyNode? SelectedNode { get; set; }
+
+    [ObservableProperty]
+    public partial string AddressText { get; set; } = string.Empty;
 
     public ObservableCollection<RegistryKeyNode> Roots { get; } = new();
 
@@ -32,6 +46,11 @@ public partial class MainViewModel : ObservableObject
     {
         get
         {
+            if (_statusError is not null)
+            {
+                return _statusError;
+            }
+
             if (SelectedNode is null)
             {
                 return "Ready";
@@ -108,6 +127,32 @@ public partial class MainViewModel : ObservableObject
         return completion.Task;
     }
 
+    /// <summary>按路径跳转：逐级展开并定位。成功返回目标节点（由窗口负责选中与滚动），失败返回 null 并在状态栏报错。</summary>
+    public async Task<RegistryKeyNode?> NavigateToAsync(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        string? normalized = NormalizePath(path);
+        if (normalized is null)
+        {
+            _statusError = $"Cannot parse path '{path.Trim()}'";
+            OnPropertyChanged(nameof(StatusText));
+            return null;
+        }
+
+        RegistryKeyNode? node = await ResolveNodeAsync(normalized);
+        if (node is null)
+        {
+            _statusError = $"Path not found: {normalized}";
+            OnPropertyChanged(nameof(StatusText));
+        }
+
+        return node;
+    }
+
     public void Select(RegistryKeyNode? node)
     {
         if (node is null)
@@ -115,7 +160,9 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
+        _statusError = null;
         SelectedNode = node;
+        AddressText = node.FullPath;
         int generation = ++_selectGeneration;
         _selectedSubKeyCount = 0;
         _selectedValueCount = 0;
@@ -190,5 +237,49 @@ public partial class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(StatusText));
             });
         });
+    }
+
+    private static string? NormalizePath(string input)
+    {
+        string path = input.Trim().Trim('"');
+        if (path.StartsWith("Computer\\", StringComparison.OrdinalIgnoreCase))
+        {
+            path = path["Computer\\".Length..];
+        }
+
+        path = path.Replace('/', '\\');
+        string[] segments = path.Split('\\', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (segments.Length == 0)
+        {
+            return null;
+        }
+
+        segments[0] = RootAliases.TryGetValue(segments[0], out string? alias) ? alias : segments[0];
+        return RegistryService.Roots.Any(r => r.Name.Equals(segments[0], StringComparison.OrdinalIgnoreCase))
+            ? string.Join('\\', segments)
+            : null;
+    }
+
+    private async Task<RegistryKeyNode?> ResolveNodeAsync(string path)
+    {
+        string[] segments = path.Split('\\');
+        RegistryKeyNode? node = Roots.FirstOrDefault(r => r.Title.Equals(segments[0], StringComparison.OrdinalIgnoreCase));
+        if (node is null)
+        {
+            return null;
+        }
+
+        for (int i = 1; i < segments.Length; i++)
+        {
+            node.IsExpanded = true;
+            await EnsureChildrenLoadedAsync(node);
+            node = node.Children.FirstOrDefault(c => c.Title.Equals(segments[i], StringComparison.OrdinalIgnoreCase));
+            if (node is null)
+            {
+                return null;
+            }
+        }
+
+        return node;
     }
 }
