@@ -4,6 +4,9 @@ namespace ModernRegedit.Services;
 
 public sealed record SearchResult(string KeyPath, string ValueName, string DataPreview);
 
+/// <summary>搜索范围：键名 / 值名 / 值数据（至少勾选其一）。</summary>
+public sealed record SearchOptions(bool MatchKeyNames, bool MatchValueNames, bool MatchValueData);
+
 /// <summary>
 /// 全库并行搜索：按根键分片，各分片在后台线程递归遍历，命中经 onBatch 小批回调（后台线程触发）。
 /// 数据匹配只读每个值前 64KB；二进制按十六进制串匹配。
@@ -17,6 +20,7 @@ public sealed class RegistrySearchService
     public async Task SearchAsync(
         string query,
         IReadOnlyList<RegistryRoot> roots,
+        SearchOptions options,
         RegistryView view,
         CancellationToken cancellation,
         Action<IReadOnlyList<SearchResult>> onBatch)
@@ -25,7 +29,7 @@ public sealed class RegistrySearchService
         for (int i = 0; i < roots.Count; i++)
         {
             RegistryRoot root = roots[i];
-            shards[i] = Task.Run(() => WalkShard(root, query, view, cancellation, onBatch), CancellationToken.None);
+            shards[i] = Task.Run(() => WalkShard(root, query, options, view, cancellation, onBatch), CancellationToken.None);
         }
 
         try
@@ -41,6 +45,7 @@ public sealed class RegistrySearchService
     private static void WalkShard(
         RegistryRoot root,
         string query,
+        SearchOptions options,
         RegistryView view,
         CancellationToken cancellation,
         Action<IReadOnlyList<SearchResult>> onBatch)
@@ -55,7 +60,7 @@ public sealed class RegistrySearchService
         var nameBuffer = new char[256];
         try
         {
-            Walk(hKey, root.Name, query, sam, cancellation, onBatch, batch, nameBuffer);
+            Walk(hKey, root.Name, query, options, sam, cancellation, onBatch, batch, nameBuffer);
         }
         catch (OperationCanceledException)
         {
@@ -76,6 +81,7 @@ public sealed class RegistrySearchService
         IntPtr hKey,
         string path,
         string query,
+        SearchOptions options,
         int sam,
         CancellationToken cancellation,
         Action<IReadOnlyList<SearchResult>> onBatch,
@@ -95,15 +101,65 @@ public sealed class RegistrySearchService
             return;
         }
 
-        string keyName = path[(path.LastIndexOf('\\') + 1)..];
-        if (keyName.Contains(query, StringComparison.OrdinalIgnoreCase))
+        if (options.MatchKeyNames)
         {
-            batch.Add(new SearchResult(path, string.Empty, "(key)"));
-            FlushIfNeeded(batch, onBatch);
+            string keyName = path[(path.LastIndexOf('\\') + 1)..];
+            if (keyName.Contains(query, StringComparison.OrdinalIgnoreCase))
+            {
+                batch.Add(new SearchResult(path, string.Empty, "(key)"));
+                FlushIfNeeded(batch, onBatch);
+            }
         }
 
+        bool searchValues = options.MatchValueNames || options.MatchValueData;
+        if (searchValues)
+        {
+            SearchValues(hKey, path, query, options, cancellation, onBatch, batch, valueCount, nameBuffer);
+        }
+
+        for (int i = 0; i < subKeys; i++)
+        {
+            cancellation.ThrowIfCancellationRequested();
+
+            int nameLength = nameBuffer.Length;
+            if (RegistryNative.RegEnumKeyEx(hKey, i, nameBuffer, ref nameLength, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, out _)
+                != RegistryNative.ErrorSuccess)
+            {
+                continue;
+            }
+
+            string childName = new string(nameBuffer, 0, nameLength);
+            if (RegistryNative.RegOpenKeyEx(hKey, childName, 0, sam, out IntPtr child) != RegistryNative.ErrorSuccess)
+            {
+                continue;
+            }
+
+            try
+            {
+                Walk(child, $"{path}\\{childName}", query, options, sam, cancellation, onBatch, batch, nameBuffer);
+            }
+            finally
+            {
+                RegistryNative.RegCloseKey(child);
+            }
+        }
+    }
+
+    private static void SearchValues(
+        IntPtr hKey,
+        string path,
+        string query,
+        SearchOptions options,
+        CancellationToken cancellation,
+        Action<IReadOnlyList<SearchResult>> onBatch,
+        List<SearchResult> batch,
+        int valueCount,
+        char[] nameBuffer)
+    {
         for (int i = 0; i < valueCount; i++)
         {
+            cancellation.ThrowIfCancellationRequested();
+
             int nameLength = nameBuffer.Length;
             int dataSize = 0;
             int err = RegistryNative.RegEnumValue(
@@ -114,6 +170,17 @@ public sealed class RegistrySearchService
             }
 
             string valueName = new string(nameBuffer, 0, nameLength);
+            if (options.MatchValueNames && valueName.Contains(query, StringComparison.OrdinalIgnoreCase))
+            {
+                batch.Add(new SearchResult(path, valueName.Length == 0 ? "(Default)" : valueName, "(value name)"));
+                FlushIfNeeded(batch, onBatch);
+                continue;
+            }
+
+            if (!options.MatchValueData)
+            {
+                continue;
+            }
 
             byte[] data;
             try
@@ -136,39 +203,10 @@ public sealed class RegistrySearchService
                 ? HexEncode(data)
                 : decoded;
 
-            bool nameMatch = valueName.Contains(query, StringComparison.OrdinalIgnoreCase);
-            bool dataMatch = matchText.Contains(query, StringComparison.OrdinalIgnoreCase);
-            if (nameMatch || dataMatch)
+            if (matchText.Contains(query, StringComparison.OrdinalIgnoreCase))
             {
                 batch.Add(new SearchResult(path, valueName.Length == 0 ? "(Default)" : valueName, TruncatePreview(decoded)));
                 FlushIfNeeded(batch, onBatch);
-            }
-        }
-
-        for (int i = 0; i < subKeys; i++)
-        {
-            cancellation.ThrowIfCancellationRequested();
-
-            int nameLength = nameBuffer.Length;
-            if (RegistryNative.RegEnumKeyEx(hKey, i, nameBuffer, ref nameLength, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, out _)
-                != RegistryNative.ErrorSuccess)
-            {
-                continue;
-            }
-
-            string childName = new string(nameBuffer, 0, nameLength);
-            if (RegistryNative.RegOpenKeyEx(hKey, childName, 0, sam, out IntPtr child) != RegistryNative.ErrorSuccess)
-            {
-                continue;
-            }
-
-            try
-            {
-                Walk(child, $"{path}\\{childName}", query, sam, cancellation, onBatch, batch, nameBuffer);
-            }
-            finally
-            {
-                RegistryNative.RegCloseKey(child);
             }
         }
     }

@@ -80,6 +80,31 @@ public partial class MainViewModel : ObservableObject
     public partial string SearchStatus { get; set; } = string.Empty;
 
     [ObservableProperty]
+    public partial bool MatchKeyNames { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool MatchValueNames { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool MatchValueData { get; set; } = true;
+
+    partial void OnMatchKeyNamesChanged(bool value) => RestartSearchIfActive();
+
+    partial void OnMatchValueNamesChanged(bool value) => RestartSearchIfActive();
+
+    partial void OnMatchValueDataChanged(bool value) => RestartSearchIfActive();
+
+    /// <summary>搜索进行中或已有结果时，范围变化立即重跑当前查询。</summary>
+    private void RestartSearchIfActive()
+    {
+        if (!string.IsNullOrWhiteSpace(SearchText) && _dispatcherQueue is not null)
+        {
+            _searchDebounceGeneration++;
+            _ = StartSearchAsync();
+        }
+    }
+
+    [ObservableProperty]
     public partial Visibility SearchPanelVisibility { get; private set; } = Visibility.Collapsed;
 
     public Visibility CancelButtonVisibility => IsSearchRunning ? Visibility.Visible : Visibility.Collapsed;
@@ -185,11 +210,20 @@ public partial class MainViewModel : ObservableObject
         _searchStopwatch = Stopwatch.StartNew();
         IsSearchRunning = true;
         SearchPanelVisibility = Visibility.Visible;
+
+        if (!MatchKeyNames && !MatchValueNames && !MatchValueData)
+        {
+            IsSearchRunning = false;
+            SearchStatus = "Select at least one search scope";
+            return;
+        }
+
         SearchStatus = "Searching…";
 
         await _searchService.SearchAsync(
             query,
             RegistryService.Roots,
+            new SearchOptions(MatchKeyNames, MatchValueNames, MatchValueData),
             CurrentView,
             cts.Token,
             batch =>

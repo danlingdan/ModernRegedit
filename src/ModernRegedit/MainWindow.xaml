@@ -34,6 +34,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <AppBarButton
@@ -100,9 +101,26 @@
                 Text="{x:Bind ViewModel.AddressText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                 KeyDown="OnAddressKeyDown" />
 
+            <AppBarButton
+                Grid.Column="6"
+                Icon="Filter"
+                Label="Scope"
+                IsCompact="True"
+                ToolTipService.ToolTip="Choose where to match">
+                <AppBarButton.Flyout>
+                    <Flyout Placement="Bottom">
+                        <StackPanel Spacing="8" Margin="4">
+                            <CheckBox Content="Key names" IsChecked="{x:Bind ViewModel.MatchKeyNames, Mode=TwoWay}" />
+                            <CheckBox Content="Value names" IsChecked="{x:Bind ViewModel.MatchValueNames, Mode=TwoWay}" />
+                            <CheckBox Content="Value data" IsChecked="{x:Bind ViewModel.MatchValueData, Mode=TwoWay}" />
+                        </StackPanel>
+                    </Flyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+
             <TextBox
                 x:Name="SearchBox"
-                Grid.Column="6"
+                Grid.Column="7"
                 Width="240"
                 AutomationProperties.AutomationId="SearchBox"
                 PlaceholderText="Search keys, values, data"
