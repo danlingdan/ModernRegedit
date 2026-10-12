@@ -4,4 +4,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [Unreleased]
 
-- Project planning and research (docs/)
+### Added
+
+- Windows app: packaged WinUI 3 shell with registry tree (lazy loading), value list and status bar (M0)
