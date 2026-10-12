@@ -8,7 +8,18 @@ namespace ModernRegedit;
 
 public sealed partial class MainWindow : Window
 {
+    private static readonly ElementTheme[] ThemeCycle =
+    [
+        ElementTheme.Default,
+        ElementTheme.Light,
+        ElementTheme.Dark,
+    ];
+
+    private static readonly string[] ThemeLabels = ["System", "Light", "Dark"];
+
     private bool _suppressSelectionEvents;
+
+    private int _themeIndex;
 
     public MainViewModel ViewModel { get; } = new();
 
@@ -16,6 +27,8 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         ViewModel.Initialize(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
+        SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
+        ApplyTitleBarTheme();
     }
 
     private void OnExpanding(TreeView sender, TreeViewExpandingEventArgs args)
@@ -94,6 +107,46 @@ public sealed partial class MainWindow : Window
         {
             SelectTreeNode(node, recordHistory: false);
         }
+    }
+
+    private void OnThemeClick(object sender, RoutedEventArgs e)
+    {
+        _themeIndex = (_themeIndex + 1) % ThemeCycle.Length;
+        RootGrid.RequestedTheme = ThemeCycle[_themeIndex];
+        ThemeButton.Label = ThemeLabels[_themeIndex];
+        ApplyTitleBarTheme();
+    }
+
+    /// <summary>标题栏配色跟随内容主题，避免暗色内容配亮色标题栏的割裂感。</summary>
+    private void ApplyTitleBarTheme()
+    {
+        Microsoft.UI.Windowing.AppWindow? appWindow = AppWindow;
+        if (appWindow is null)
+        {
+            return;
+        }
+
+        bool dark = ThemeCycle[_themeIndex] switch
+        {
+            ElementTheme.Dark => true,
+            ElementTheme.Light => false,
+            _ => RootGrid.ActualTheme == ElementTheme.Dark,
+        };
+
+        Windows.UI.Color background = dark
+            ? Windows.UI.Color.FromArgb(255, 32, 32, 32)
+            : Windows.UI.Color.FromArgb(255, 243, 243, 243);
+        Windows.UI.Color foreground = dark
+            ? Windows.UI.Color.FromArgb(255, 255, 255, 255)
+            : Windows.UI.Color.FromArgb(255, 0, 0, 0);
+
+        appWindow.TitleBar.BackgroundColor = background;
+        appWindow.TitleBar.ForegroundColor = foreground;
+        appWindow.TitleBar.ButtonBackgroundColor = background;
+        appWindow.TitleBar.ButtonForegroundColor = foreground;
+        appWindow.TitleBar.ButtonHoverBackgroundColor = dark
+            ? Windows.UI.Color.FromArgb(255, 45, 45, 45)
+            : Windows.UI.Color.FromArgb(255, 218, 218, 218);
     }
 
     private void SelectTreeNode(RegistryKeyNode node, bool recordHistory)

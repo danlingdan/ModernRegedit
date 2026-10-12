@@ -6,7 +6,11 @@
     xmlns:vm="using:ModernRegedit.ViewModels"
     Title="ModernRegedit">
 
-    <Grid ColumnSpacing="8" RowSpacing="4" Margin="8">
+    <Grid
+        x:Name="RootGrid"
+        ColumnSpacing="8"
+        RowSpacing="4"
+        Margin="8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -23,6 +27,7 @@
             Grid.ColumnSpan="2"
             ColumnSpacing="4">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -75,9 +80,21 @@
                 Checked="OnViewToggled"
                 Unchecked="OnViewToggled" />
 
+            <AppBarButton
+                x:Name="ThemeButton"
+                Grid.Column="4"
+                AutomationProperties.AutomationId="ThemeButton"
+                Label="System"
+                ToolTipService.ToolTip="Cycle system / light / dark theme"
+                Click="OnThemeClick">
+                <AppBarButton.Icon>
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE790;" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+
             <TextBox
                 x:Name="AddressBar"
-                Grid.Column="4"
+                Grid.Column="5"
                 PlaceholderText="Type a key path, e.g. HKLM\SOFTWARE\Microsoft"
                 Text="{x:Bind ViewModel.AddressText, Mode=TwoWay}"
                 KeyDown="OnAddressKeyDown" />
