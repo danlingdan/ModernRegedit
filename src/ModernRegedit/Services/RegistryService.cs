@@ -101,23 +101,18 @@ public sealed class RegistryService
 
     public void CreateKey(string fullPath, RegistryView view = RegistryView.Default)
     {
-        (IntPtr parent, string childName) = OpenParent(fullPath, view, RegistryNative.KeyWrite | RegistryNative.KeyRead);
-        try
+        IntPtr root = OpenRoot(fullPath);
+        string? subKey = SubKeyPath(fullPath);
+        // RegCreateKeyEx 会连同缺失的中间键一起创建。
+        int rc = RegistryNative.RegCreateKeyEx(
+            root, subKey, 0, IntPtr.Zero, RegistryNative.RegOptionNonVolatile,
+            RegistryNative.KeyWrite, IntPtr.Zero, out IntPtr hKey, out _);
+        if (rc != RegistryNative.ErrorSuccess)
         {
-            int rc = RegistryNative.RegCreateKeyEx(
-                parent, childName, 0, IntPtr.Zero, RegistryNative.RegOptionNonVolatile,
-                RegistryNative.KeyWrite, IntPtr.Zero, out IntPtr hKey, out _);
-            if (rc != RegistryNative.ErrorSuccess)
-            {
-                throw new IOException($"Cannot create key '{fullPath}'.", rc);
-            }
+            throw new IOException($"Cannot create key '{fullPath}'.", rc);
+        }
 
-            RegistryNative.RegCloseKey(hKey);
-        }
-        finally
-        {
-            RegistryNative.RegCloseKey(parent);
-        }
+        RegistryNative.RegCloseKey(hKey);
     }
 
     public void DeleteKey(string fullPath, RegistryView view = RegistryView.Default)
@@ -202,18 +197,27 @@ public sealed class RegistryService
 
     private static IntPtr Open(string fullPath, RegistryView view, int access)
     {
-        int separator = fullPath.IndexOf('\\');
-        string rootName = separator < 0 ? fullPath : fullPath[..separator];
-        string? subKey = separator < 0 ? null : fullPath[(separator + 1)..];
-
-        IntPtr root = Roots.First(r => r.Name.Equals(rootName, StringComparison.OrdinalIgnoreCase)).Handle;
+        IntPtr root = OpenRoot(fullPath);
         int sam = access | WowFlags(view);
-        if (RegistryNative.RegOpenKeyEx(root, subKey, 0, sam, out IntPtr hKey) != RegistryNative.ErrorSuccess)
+        if (RegistryNative.RegOpenKeyEx(root, SubKeyPath(fullPath), 0, sam, out IntPtr hKey) != RegistryNative.ErrorSuccess)
         {
             throw new IOException($"Cannot open registry key '{fullPath}'.");
         }
 
         return hKey;
+    }
+
+    private static IntPtr OpenRoot(string fullPath)
+    {
+        int separator = fullPath.IndexOf('\\');
+        string rootName = separator < 0 ? fullPath : fullPath[..separator];
+        return Roots.First(r => r.Name.Equals(rootName, StringComparison.OrdinalIgnoreCase)).Handle;
+    }
+
+    private static string? SubKeyPath(string fullPath)
+    {
+        int separator = fullPath.IndexOf('\\');
+        return separator < 0 ? null : fullPath[(separator + 1)..];
     }
 
     internal static int WowFlags(RegistryView view) => view switch

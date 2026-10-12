@@ -134,6 +134,7 @@
             Grid.Column="0"
             ItemsSource="{x:Bind ViewModel.Roots}"
             Expanding="OnExpanding"
+            RightTapped="OnTreeRightTapped"
             SelectionChanged="OnSelectionChanged">
             <TreeView.ItemTemplate>
                 <DataTemplate x:DataType="vm:RegistryKeyNode">

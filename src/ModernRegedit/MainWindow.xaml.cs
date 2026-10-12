@@ -245,6 +245,157 @@ public sealed partial class MainWindow : Window
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
+    private static async Task<string?> PromptTextAsync(XamlRoot root, string title, string header, string initial)
+    {
+        string? result = null;
+        var box = new TextBox { Header = header, Text = initial };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(box, "DialogNameBox");
+        var dialog = new ContentDialog
+        {
+            XamlRoot = root,
+            Title = title,
+            Content = box,
+            PrimaryButtonText = "OK",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        dialog.PrimaryButtonClick += (_, args) =>
+        {
+            string name = box.Text.Trim();
+            if (name.Length == 0 || name.Contains('\\'))
+            {
+                args.Cancel = true;
+                return;
+            }
+
+            result = name;
+        };
+
+        await dialog.ShowAsync();
+        return result;
+    }
+
+    private RegistryKeyNode? FindNodeUnder(object source)
+    {
+        DependencyObject? dep = source as DependencyObject;
+        while (dep is not null and not TreeViewItem)
+        {
+            dep = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(dep);
+        }
+
+        return dep is TreeViewItem container ? KeyTree.ItemFromContainer(container) as RegistryKeyNode : null;
+    }
+
+    private void OnTreeRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        RegistryKeyNode? node = FindNodeUnder(e.OriginalSource);
+
+        var menu = new MenuFlyout();
+        var newKey = new MenuFlyoutItem { Text = "New Key…" };
+        newKey.Click += (_, _) => _ = NewKeyAsync(node);
+        menu.Items.Add(newKey);
+
+        var newValue = new MenuFlyoutItem { Text = "New Value…" };
+        newValue.Click += (_, _) => _ = NewValueUnderAsync(node);
+        menu.Items.Add(newValue);
+
+        if (node is not null && node.FullPath.Contains('\\'))
+        {
+            var rename = new MenuFlyoutItem { Text = "Rename…" };
+            rename.Click += (_, _) => _ = RenameKeyAsync(node);
+            menu.Items.Add(rename);
+
+            var delete = new MenuFlyoutItem { Text = "Delete" };
+            delete.Click += (_, _) => _ = DeleteKeyAsync(node);
+            menu.Items.Add(delete);
+        }
+
+        menu.ShowAt(KeyTree, e.GetPosition(KeyTree));
+    }
+
+    private async Task NewKeyAsync(RegistryKeyNode? parent)
+    {
+        string? name = await PromptTextAsync(
+            Content.XamlRoot,
+            parent is null ? "New key under registry root" : $"New key under '{parent.FullPath}'",
+            "Key name",
+            "New Key");
+        if (string.IsNullOrEmpty(name))
+        {
+            return;
+        }
+
+        string path = parent is null ? name : $"{parent.FullPath}\\{name}";
+        if (await ViewModel.ApplyWritesAsync([new WriteOperation(WriteOpKind.CreateKey, path)]))
+        {
+            await SelectPathAsync(path);
+        }
+    }
+
+    private async Task NewValueUnderAsync(RegistryKeyNode? node)
+    {
+        if (node is null)
+        {
+            return;
+        }
+
+        var created = await ValueDialogs.ShowAsync(
+            Content.XamlRoot, $"New value under '{node.FullPath}'", "New Value", RegKind.Sz, Array.Empty<byte>(), allowPickType: true);
+        if (created is null)
+        {
+            return;
+        }
+
+        await ViewModel.ApplyWritesAsync(
+        [
+            new WriteOperation(WriteOpKind.SetValue, node.FullPath, created.Value.Name, ValueType: created.Value.Kind, Data: created.Value.Data),
+        ]);
+    }
+
+    private async Task RenameKeyAsync(RegistryKeyNode node)
+    {
+        string? newName = await PromptTextAsync(Content.XamlRoot, $"Rename '{node.Title}'", "New name", node.Title);
+        if (string.IsNullOrEmpty(newName) || string.Equals(newName, node.Title, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        string newPath = $"{node.FullPath[..node.FullPath.LastIndexOf('\\')]}\\{newName}";
+        if (await ViewModel.ApplyWritesAsync([new WriteOperation(WriteOpKind.RenameKey, node.FullPath, NewName: newName)]))
+        {
+            await SelectPathAsync(newPath);
+        }
+    }
+
+    private async Task DeleteKeyAsync(RegistryKeyNode node)
+    {
+        bool confirmed = await ConfirmAsync(
+            Content.XamlRoot,
+            "Delete key",
+            $"'{node.FullPath}' and everything under it will be deleted. Continue?",
+            "Delete");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        string parentPath = node.FullPath[..node.FullPath.LastIndexOf('\\')];
+        if (await ViewModel.ApplyWritesAsync([new WriteOperation(WriteOpKind.DeleteKey, node.FullPath)]))
+        {
+            await SelectPathAsync(parentPath);
+        }
+    }
+
+    private async Task SelectPathAsync(string path)
+    {
+        RegistryKeyNode? node = await ViewModel.NavigateToAsync(path);
+        if (node is not null)
+        {
+            SelectTreeNode(node, recordHistory: false);
+        }
+    }
+
     private void OnResultsDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         JumpToResult(ResultsList.SelectedItem as SearchResultRow);

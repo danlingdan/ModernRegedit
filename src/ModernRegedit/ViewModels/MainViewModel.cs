@@ -321,6 +321,13 @@ public partial class MainViewModel : ObservableObject
             {
                 Select(again);
             }
+            else
+            {
+                // 当前选中键已被删除/改名：清空值面板，等待窗口层改选。
+                SelectedNode = null;
+                Values.Clear();
+                OnPropertyChanged(nameof(StatusText));
+            }
         }
 
         return true;
