@@ -282,34 +282,16 @@ public partial class MainViewModel : ObservableObject
                 // 无权限或键已消失：按 0 处理，不中断值加载。
             }
 
-            var rows = new List<RegistryValueRow>();
+            var decoded = new List<(string Name, RegKind Kind, string Data)>();
             int valueCount = 0;
             try
             {
                 IReadOnlyList<RegistryValueInfo> values = _service.GetValues(fullPath, view);
                 valueCount = values.Count;
 
-                RegistryValueInfo? defaultValue = values.FirstOrDefault(v => v.Name.Length == 0);
-                rows.Add(new RegistryValueRow
-                {
-                    Name = "(Default)",
-                    KindDisplay = defaultValue is null ? "REG_SZ" : RegValueDecoder.KindName(defaultValue.Kind),
-                    DataDisplay = defaultValue is null ? "(value not set)" : RegValueDecoder.Decode(defaultValue.Kind, defaultValue.Data),
-                });
-
                 foreach (RegistryValueInfo value in values)
                 {
-                    if (value.Name.Length == 0)
-                    {
-                        continue;
-                    }
-
-                    rows.Add(new RegistryValueRow
-                    {
-                        Name = value.Name,
-                        KindDisplay = RegValueDecoder.KindName(value.Kind),
-                        DataDisplay = RegValueDecoder.Decode(value.Kind, value.Data),
-                    });
+                    decoded.Add((value.Name, value.Kind, RegValueDecoder.Decode(value.Kind, value.Data)));
                 }
             }
             catch (IOException)
@@ -328,9 +310,23 @@ public partial class MainViewModel : ObservableObject
                 _selectedValueCount = valueCount;
                 _isLoadingValues = false;
                 Values.Clear();
-                foreach (RegistryValueRow row in rows)
+
+                // 图标与画刷取自应用资源，只能在 UI 线程解析。
+                int defaultIndex = decoded.FindIndex(v => v.Name.Length == 0);
+                if (defaultIndex >= 0)
                 {
-                    Values.Add(row);
+                    Values.Add(MakeRow("(Default)", decoded[defaultIndex].Kind, decoded[defaultIndex].Data));
+                }
+                else
+                {
+                    Values.Add(MakeRow("(Default)", RegKind.Sz, "(value not set)"));
+                }
+                foreach ((string name, RegKind kind, string data) in decoded)
+                {
+                    if (name.Length > 0)
+                    {
+                        Values.Add(MakeRow(name, kind, data));
+                    }
                 }
 
                 OnPropertyChanged(nameof(StatusText));
@@ -371,6 +367,15 @@ public partial class MainViewModel : ObservableObject
 
         return await ResolveNodeAsync(currentPath);
     }
+
+    private static RegistryValueRow MakeRow(string name, RegKind kind, string dataDisplay) => new()
+    {
+        Name = name,
+        KindDisplay = RegValueDecoder.KindName(kind),
+        DataDisplay = dataDisplay,
+        KindSymbol = RegValuePresentation.GetSymbol(kind),
+        KindBrush = RegValuePresentation.GetBrush(kind),
+    };
 
     private static string? NormalizePath(string input)
     {

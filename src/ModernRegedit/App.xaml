@@ -8,6 +8,14 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+            <!-- 值类型配色：中等饱和度，亮暗主题下都可读 -->
+            <SolidColorBrush x:Key="TypeStringBrush" Color="#0078D4" />
+            <SolidColorBrush x:Key="TypeExpandStringBrush" Color="#0099BC" />
+            <SolidColorBrush x:Key="TypeBinaryBrush" Color="#CA5010" />
+            <SolidColorBrush x:Key="TypeNumberBrush" Color="#8764B8" />
+            <SolidColorBrush x:Key="TypeMultiStringBrush" Color="#107C10" />
+            <SolidColorBrush x:Key="TypeLinkBrush" Color="#C239B3" />
+            <SolidColorBrush x:Key="TypeOtherBrush" Color="#8A8A8A" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
