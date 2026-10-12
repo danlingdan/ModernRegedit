@@ -114,7 +114,7 @@ public sealed class RegistrySearchService
         bool searchValues = options.MatchValueNames || options.MatchValueData;
         if (searchValues)
         {
-            SearchValues(hKey, path, query, options, cancellation, onBatch, batch, valueCount, nameBuffer);
+            SearchValues(hKey, path, query, options, cancellation, onBatch, batch);
         }
 
         for (int i = 0; i < subKeys; i++)
@@ -152,24 +152,23 @@ public sealed class RegistrySearchService
         SearchOptions options,
         CancellationToken cancellation,
         Action<IReadOnlyList<SearchResult>> onBatch,
-        List<SearchResult> batch,
-        int valueCount,
-        char[] nameBuffer)
+        List<SearchResult> batch)
     {
-        for (int i = 0; i < valueCount; i++)
+        IReadOnlyList<RegistryValueInfo> values;
+        try
+        {
+            values = RegistryService.EnumerateValues(hKey);
+        }
+        catch (IOException)
+        {
+            return;
+        }
+
+        foreach (RegistryValueInfo value in values)
         {
             cancellation.ThrowIfCancellationRequested();
 
-            int nameLength = nameBuffer.Length;
-            int dataSize = 0;
-            int err = RegistryNative.RegEnumValue(
-                hKey, i, nameBuffer, ref nameLength, IntPtr.Zero, out int type, Array.Empty<byte>(), ref dataSize);
-            if (err != RegistryNative.ErrorSuccess && err != RegistryNative.ErrorMoreData)
-            {
-                continue;
-            }
-
-            string valueName = new string(nameBuffer, 0, nameLength);
+            string valueName = value.Name;
             if (options.MatchValueNames && valueName.Contains(query, StringComparison.OrdinalIgnoreCase))
             {
                 batch.Add(new SearchResult(path, valueName.Length == 0 ? "(Default)" : valueName, "(value name)"));
@@ -182,24 +181,14 @@ public sealed class RegistrySearchService
                 continue;
             }
 
-            byte[] data;
-            try
-            {
-                data = RegistryService.QueryData(hKey, valueName);
-            }
-            catch (IOException)
-            {
-                continue;
-            }
-
+            byte[] data = value.Data;
             if (data.Length > MaxDecodedBytes)
             {
                 data = data[..MaxDecodedBytes];
             }
 
-            var kind = MapKind(type);
-            string decoded = RegValueDecoder.Decode(kind, data);
-            string matchText = kind is RegKind.Binary or RegKind.None
+            string decoded = RegValueDecoder.Decode(value.Kind, data);
+            string matchText = value.Kind is RegKind.Binary or RegKind.None
                 ? HexEncode(data)
                 : decoded;
 
@@ -252,20 +241,4 @@ public sealed class RegistrySearchService
 
     private static string TruncatePreview(string text)
         => text.Length <= PreviewLength ? text : text[..PreviewLength] + "…";
-
-    private static RegKind MapKind(int type) => type switch
-    {
-        1 => RegKind.Sz,
-        2 => RegKind.ExpandSz,
-        3 => RegKind.Binary,
-        4 => RegKind.Dword,
-        5 => RegKind.DwordBigEndian,
-        6 => RegKind.Link,
-        7 => RegKind.MultiSz,
-        8 => RegKind.ResourceList,
-        9 => RegKind.FullResourceDescriptor,
-        10 => RegKind.ResourceRequirementsList,
-        11 => RegKind.Qword,
-        _ => RegKind.None,
-    };
 }

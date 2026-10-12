@@ -91,31 +91,50 @@ public sealed class RegistryService
         IntPtr hKey = Open(fullPath, view);
         try
         {
-            (_, int values) = GetCounts(hKey);
-            var result = new List<RegistryValueInfo>(values);
-            var name = new char[256];
-
-            for (int i = 0; i < values; i++)
-            {
-                int len = name.Length;
-                int noDataLength = 0;
-                int err = RegistryNative.RegEnumValue(
-                    hKey, i, name, ref len, IntPtr.Zero, out int type, Array.Empty<byte>(), ref noDataLength);
-                if (err != RegistryNative.ErrorSuccess && err != RegistryNative.ErrorMoreData)
-                {
-                    continue;
-                }
-
-                string valueName = new(name, 0, len);
-                result.Add(new RegistryValueInfo(valueName, MapKind(type), QueryData(hKey, valueName)));
-            }
-
-            return result;
+            return EnumerateValues(hKey);
         }
         finally
         {
             RegistryNative.RegCloseKey(hKey);
         }
+    }
+
+    /// <summary>
+    /// 枚举键下全部值。注意 RegEnumValueW 在数据缓冲不足（rc=234）时不保证回写名字长度，
+    /// 必须按所需数据大小重枚举同一索引，成功返回后名字与数据才可靠。
+    /// </summary>
+    internal static IReadOnlyList<RegistryValueInfo> EnumerateValues(IntPtr hKey)
+    {
+        (_, int values) = GetCounts(hKey);
+        var result = new List<RegistryValueInfo>(values);
+        var name = new char[256];
+        var data = Array.Empty<byte>();
+
+        for (int i = 0; i < values; i++)
+        {
+            int len = name.Length;
+            int dataLen = 0;
+            int err = RegistryNative.RegEnumValue(hKey, i, name, ref len, IntPtr.Zero, out int type, data, ref dataLen);
+            if (err == RegistryNative.ErrorMoreData)
+            {
+                data = new byte[dataLen];
+                dataLen = data.Length;
+                len = name.Length;
+                err = RegistryNative.RegEnumValue(hKey, i, name, ref len, IntPtr.Zero, out type, data, ref dataLen);
+            }
+
+            if (err != RegistryNative.ErrorSuccess)
+            {
+                continue;
+            }
+
+            string valueName = new(name, 0, len);
+            var payload = new byte[dataLen];
+            Array.Copy(data, payload, dataLen);
+            result.Add(new RegistryValueInfo(valueName, MapKind(type), payload));
+        }
+
+        return result;
     }
 
     private static IntPtr Open(string fullPath, RegistryView view)
@@ -159,31 +178,6 @@ public sealed class RegistryService
         }
 
         return (subKeys, values);
-    }
-
-    internal static byte[] QueryData(IntPtr hKey, string valueName)
-    {
-        int size = 0;
-        int err = RegistryNative.RegQueryValueEx(hKey, valueName, IntPtr.Zero, out _, Array.Empty<byte>(), ref size);
-        if (err != RegistryNative.ErrorSuccess && err != RegistryNative.ErrorMoreData)
-        {
-            throw new IOException($"Cannot query registry value '{valueName}'.");
-        }
-
-        var buffer = new byte[size];
-        int length = buffer.Length;
-        if (RegistryNative.RegQueryValueEx(hKey, valueName, IntPtr.Zero, out _, buffer, ref length)
-            != RegistryNative.ErrorSuccess)
-        {
-            throw new IOException($"Cannot query registry value '{valueName}'.");
-        }
-
-        if (length != buffer.Length)
-        {
-            Array.Resize(ref buffer, length);
-        }
-
-        return buffer;
     }
 
     private static RegKind MapKind(int type) => type switch
