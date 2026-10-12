@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a problem in ModernRegedit
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Security issues: use [private vulnerability reporting](https://github.com/danlingdan/ModernRegedit/security/advisories/new) instead.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown in Settings, or the release/tag you built from.
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: e.g. Windows 11 26H2 (26300)
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual result
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Logs or screenshots
+      description: Optional.
