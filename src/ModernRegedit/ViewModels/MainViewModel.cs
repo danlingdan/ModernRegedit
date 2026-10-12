@@ -49,6 +49,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial bool CanGoForward { get; private set; }
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    public partial bool Is32BitView { get; set; }
+
     public ObservableCollection<RegistryKeyNode> Roots { get; } = new();
 
     public ObservableCollection<RegistryValueRow> Values { get; } = new();
@@ -67,7 +71,7 @@ public partial class MainViewModel : ObservableObject
                 return "Ready";
             }
 
-            string view = Environment.Is64BitOperatingSystem ? "64-bit view" : "32-bit view";
+            string view = Is32BitView ? "32-bit view" : "64-bit view";
             return _isLoadingValues
                 ? $"{SelectedNode.FullPath} — loading…"
                 : $"{SelectedNode.FullPath} — {_selectedSubKeyCount} subkeys, {_selectedValueCount} values — {view}";
@@ -84,6 +88,8 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private RegistryView CurrentView => Is32BitView ? RegistryView.Registry32 : RegistryView.Registry64;
+
     /// <summary>枚举子键（后台线程），完成后经 DispatcherQueue 应用。可并发调用，只枚举一次。</summary>
     public Task EnsureChildrenLoadedAsync(RegistryKeyNode node)
     {
@@ -98,6 +104,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         string fullPath = node.FullPath;
+        RegistryView view = CurrentView;
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         node.LoadTask = completion.Task;
 
@@ -106,7 +113,7 @@ public partial class MainViewModel : ObservableObject
             IReadOnlyList<RegistryKeyName> keys;
             try
             {
-                keys = _service.GetSubKeyNames(fullPath);
+                keys = _service.GetSubKeyNames(fullPath, view);
             }
             catch (IOException)
             {
@@ -262,12 +269,13 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(StatusText));
 
         string fullPath = node.FullPath;
+        RegistryView view = CurrentView;
         Task.Run(() =>
         {
             int subKeyCount = 0;
             try
             {
-                subKeyCount = _service.GetSubKeyCount(fullPath);
+                subKeyCount = _service.GetSubKeyCount(fullPath, view);
             }
             catch (IOException)
             {
@@ -278,7 +286,7 @@ public partial class MainViewModel : ObservableObject
             int valueCount = 0;
             try
             {
-                IReadOnlyList<RegistryValueInfo> values = _service.GetValues(fullPath);
+                IReadOnlyList<RegistryValueInfo> values = _service.GetValues(fullPath, view);
                 valueCount = values.Count;
 
                 RegistryValueInfo? defaultValue = values.FirstOrDefault(v => v.Name.Length == 0);
@@ -328,6 +336,40 @@ public partial class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(StatusText));
             });
         });
+    }
+
+    /// <summary>切换 32/64 位视图：重建键树，原位置在新视图下重新定位（不改历史）。返回新视图下的原位置节点。</summary>
+    public async Task<RegistryKeyNode?> SetViewAsync(bool is32Bit)
+    {
+        if (Is32BitView == is32Bit)
+        {
+            return SelectedNode;
+        }
+
+        Is32BitView = is32Bit;
+        string? currentPath = SelectedNode?.FullPath;
+
+        _selectGeneration++;
+        Roots.Clear();
+        foreach (RegistryRoot root in RegistryService.Roots)
+        {
+            Roots.Add(new RegistryKeyNode(root.Name, root.Name));
+        }
+
+        SelectedNode = null;
+        _selectedSubKeyCount = 0;
+        _selectedValueCount = 0;
+        _isLoadingValues = false;
+        _statusError = null;
+        Values.Clear();
+        OnPropertyChanged(nameof(StatusText));
+
+        if (currentPath is null)
+        {
+            return null;
+        }
+
+        return await ResolveNodeAsync(currentPath);
     }
 
     private static string? NormalizePath(string input)

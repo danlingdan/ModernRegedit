@@ -82,6 +82,20 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private async void OnViewToggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is not AppBarToggleButton toggle)
+        {
+            return;
+        }
+
+        RegistryKeyNode? node = await ViewModel.SetViewAsync(toggle.IsChecked == true);
+        if (node is not null)
+        {
+            SelectTreeNode(node, recordHistory: false);
+        }
+    }
+
     private void SelectTreeNode(RegistryKeyNode node, bool recordHistory)
     {
         _suppressSelectionEvents = true;

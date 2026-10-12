@@ -26,6 +26,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
@@ -67,9 +68,16 @@
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
 
+            <AppBarToggleButton
+                Grid.Column="3"
+                Label="32-bit"
+                ToolTipService.ToolTip="Show the 32-bit registry view"
+                Checked="OnViewToggled"
+                Unchecked="OnViewToggled" />
+
             <TextBox
                 x:Name="AddressBar"
-                Grid.Column="3"
+                Grid.Column="4"
                 PlaceholderText="Type a key path, e.g. HKLM\SOFTWARE\Microsoft"
                 Text="{x:Bind ViewModel.AddressText, Mode=TwoWay}"
                 KeyDown="OnAddressKeyDown" />
