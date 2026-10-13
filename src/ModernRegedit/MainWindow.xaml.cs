@@ -337,6 +337,16 @@ public sealed partial class MainWindow : Window
             menu.Items.Add(delete);
 
             menu.Items.Add(new MenuFlyoutSeparator());
+
+            var copyName = new MenuFlyoutItem { Text = "Copy name" };
+            copyName.Click += (_, _) => CopyText(row.Name);
+            menu.Items.Add(copyName);
+
+            var copyData = new MenuFlyoutItem { Text = "Copy data" };
+            copyData.Click += (_, _) => CopyText(row.DataDisplay);
+            menu.Items.Add(copyData);
+
+            menu.Items.Add(new MenuFlyoutSeparator());
         }
 
         var newValue = new MenuFlyoutItem { Text = "New Value…" };
@@ -344,6 +354,42 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(newValue);
 
         menu.ShowAt(ValuesList, e.GetPosition(ValuesList));
+    }
+
+    /// <summary>文本进剪贴板（复制语义）。</summary>
+    private static void CopyText(string text)
+    {
+        var package = new Windows.ApplicationModel.DataTransfer.DataPackage
+        {
+            RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy,
+        };
+        package.SetText(text);
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+    }
+
+    private void OnCopyValueDataAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        RegistryValueRow? row = ViewModel.SelectedValueRow;
+        if (row is null || row.IsUnset)
+        {
+            return;
+        }
+
+        args.Handled = true;
+        CopyText(row.DataDisplay);
+        ViewModel.SetStatusMessage($"Copied data of '{row.Name}'.");
+    }
+
+    private void OnCopyKeyPathAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (ViewModel.SelectedNode is not RegistryKeyNode node)
+        {
+            return;
+        }
+
+        args.Handled = true;
+        CopyText(node.FullPath);
+        ViewModel.SetStatusMessage($"Copied '{node.FullPath}'.");
     }
 
     private async Task EditValueAsync(RegistryValueRow? row)
@@ -718,16 +764,18 @@ public sealed partial class MainWindow : Window
         RegistryKeyNode? node = FindNodeUnder(e.OriginalSource);
 
         var menu = new MenuFlyout();
-        var newKey = new MenuFlyoutItem { Text = "New Key…" };
-        newKey.Click += async (_, _) => await RunOnUiThreadAsync(async () => await NewKeyAsync(node));
-        menu.Items.Add(newKey);
 
-        var newValue = new MenuFlyoutItem { Text = "New Value…" };
-        newValue.Click += async (_, _) => await RunOnUiThreadAsync(async () => await NewValueUnderAsync(node));
-        menu.Items.Add(newValue);
-
+        // 根键与树空白区不可新建（与 regedit 一致）。
         if (node is not null && node.FullPath.Contains('\\'))
         {
+            var newKey = new MenuFlyoutItem { Text = "New Key…" };
+            newKey.Click += async (_, _) => await RunOnUiThreadAsync(async () => await NewKeyAsync(node));
+            menu.Items.Add(newKey);
+
+            var newValue = new MenuFlyoutItem { Text = "New Value…" };
+            newValue.Click += async (_, _) => await RunOnUiThreadAsync(async () => await NewValueUnderAsync(node));
+            menu.Items.Add(newValue);
+
             var rename = new MenuFlyoutItem { Text = "Rename…" };
             rename.Click += async (_, _) => await RunOnUiThreadAsync(async () => await RenameKeyAsync(node));
             menu.Items.Add(rename);
@@ -741,6 +789,10 @@ public sealed partial class MainWindow : Window
 
         if (node is not null)
         {
+            var copyPath = new MenuFlyoutItem { Text = "Copy path" };
+            copyPath.Click += (_, _) => CopyText(node.FullPath);
+            menu.Items.Add(copyPath);
+
             var export = new MenuFlyoutItem { Text = "Export…" };
             export.Click += async (_, _) => await RunOnUiThreadAsync(async () => await ExportAsync(node));
             menu.Items.Add(export);

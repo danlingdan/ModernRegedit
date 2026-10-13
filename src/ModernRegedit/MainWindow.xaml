@@ -220,6 +220,9 @@
             RightTapped="OnTreeRightTapped"
             SelectionChanged="OnSelectionChanged"
             KeyDown="OnTreeKeyDown">
+            <TreeView.KeyboardAccelerators>
+                <KeyboardAccelerator Modifiers="Control" Key="C" Invoked="OnCopyKeyPathAccelerator" />
+            </TreeView.KeyboardAccelerators>
             <TreeView.ItemTemplate>
                 <DataTemplate x:DataType="vm:RegistryKeyNode">
                     <TreeViewItem
@@ -305,6 +308,9 @@
                     DoubleTapped="OnValuesDoubleTapped"
                     RightTapped="OnValuesRightTapped"
                     KeyDown="OnValuesKeyDown">
+                    <ListView.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="C" Invoked="OnCopyValueDataAccelerator" />
+                    </ListView.KeyboardAccelerators>
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="MinHeight" Value="32" />
