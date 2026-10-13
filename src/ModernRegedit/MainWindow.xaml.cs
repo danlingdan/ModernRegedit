@@ -220,8 +220,9 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        bool confirmed = await ConfirmAsync(
-            Content.XamlRoot, "Delete value", $"Delete value '{row.Name}' from '{ViewModel.SelectedNode.FullPath}'?", "Delete");
+        bool confirmed = await ConfirmHighRiskAsync(
+            Content.XamlRoot, "Delete value", ViewModel.SelectedNode.FullPath,
+            $"Delete value '{row.Name}' from '{ViewModel.SelectedNode.FullPath}'?", "Delete");
         if (!confirmed)
         {
             return;
@@ -309,6 +310,53 @@ public sealed partial class MainWindow : Window
             PrimaryButtonText = action,
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary,
+        };
+
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+    }
+
+    /// <summary>高危键确认：命中清单时显示分级警告（红=启动关键，黄=服务/自启动）。</summary>
+    private static async Task<bool> ConfirmHighRiskAsync(
+        XamlRoot root, string title, string keyPath, string message, string action)
+    {
+        HighRiskArea? area = HighRiskKeys.Match(keyPath);
+        if (area is null)
+        {
+            return await ConfirmAsync(root, title, message, action);
+        }
+
+        var levelText = new TextBlock
+        {
+            Text = area.Level == RiskLevel.Critical
+                ? "⚠ STARTUP-CRITICAL AREA"
+                : "⚠ SENSITIVE AREA",
+            Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                area.Level == RiskLevel.Critical ? Microsoft.UI.Colors.OrangeRed : Microsoft.UI.Colors.Goldenrod),
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 6),
+        };
+        var reason = new TextBlock
+        {
+            Text = area.Reason,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
+            Margin = new Thickness(0, 0, 0, 8),
+        };
+        var body = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap };
+
+        var panel = new StackPanel { Spacing = 4 };
+        panel.Children.Add(levelText);
+        panel.Children.Add(body);
+        panel.Children.Add(reason);
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = root,
+            Title = title,
+            Content = panel,
+            PrimaryButtonText = action,
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
         };
 
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
@@ -452,9 +500,10 @@ public sealed partial class MainWindow : Window
 
     private async Task DeleteKeyAsync(RegistryKeyNode node)
     {
-        bool confirmed = await ConfirmAsync(
+        bool confirmed = await ConfirmHighRiskAsync(
             Content.XamlRoot,
             "Delete key",
+            node.FullPath,
             $"'{node.FullPath}' and everything under it will be deleted. Continue?",
             "Delete");
         if (!confirmed)
@@ -548,10 +597,14 @@ public sealed partial class MainWindow : Window
 
     private async Task<bool> ConfirmImportAsync(RegFile.ImportPlan plan, string fileName)
     {
+        int riskHits = plan.Operations.Count(op => HighRiskKeys.Match(op.KeyPath) is not null);
+        string riskNote = riskHits > 0
+            ? $" ⚠ {riskHits} operations target high-risk areas (startup-critical or autostart)."
+            : string.Empty;
         var summary = new TextBlock
         {
             Margin = new Thickness(0, 0, 0, 8),
-            Text = $"'{fileName}' proposes {plan.Rows.Count} changes: {plan.Added} added, {plan.Modified} modified, {plan.Deleted} deleted (keys and values).",
+            Text = $"'{fileName}' proposes {plan.Rows.Count} changes: {plan.Added} added, {plan.Modified} modified, {plan.Deleted} deleted (keys and values).{riskNote}",
             TextWrapping = TextWrapping.Wrap,
         };
 
