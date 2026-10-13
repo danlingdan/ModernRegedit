@@ -77,6 +77,9 @@ public sealed partial class MainWindow : Window
             ThemeButton.Label = ThemeLabels[_themeIndex];
         }
 
+        // 恢复 32 位视图时同步开关；事件触发 SetViewAsync 会因视图相同而空转，无副作用。
+        View32Toggle.IsChecked = ViewModel.Is32BitView;
+
         if (ViewModel.BackupRetentionSetting > 0)
         {
             Services.RegistryWriteService.BackupRetentionOverride = ViewModel.BackupRetentionSetting;
