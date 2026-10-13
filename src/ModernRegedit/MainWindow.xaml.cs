@@ -328,6 +328,44 @@ public sealed partial class MainWindow : Window
         await completion.Task;
     }
 
+    private void OnPaletteAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (FocusManager.GetFocusedElement() is TextBox)
+        {
+            return;
+        }
+
+        args.Handled = true;
+        _ = RunOnUiThreadAsync(async () => await ShowCommandPaletteAsync());
+    }
+
+    private async Task ShowCommandPaletteAsync()
+    {
+        var commands = new List<UI.CommandPalette.Command>
+        {
+            new("Undo", async () => await ViewModel.UndoAsync()),
+            new("Redo", async () => await ViewModel.RedoAsync()),
+            new("Export current key…", async () => await ExportAsync(ViewModel.SelectedNode)),
+            new("Import .reg file…", async () => await ImportAsync()),
+            new("Toggle 32-bit view", async () => await ViewModel.SetViewAsync(!ViewModel.Is32BitView)),
+            new("Cycle theme", () => { OnThemeClick(this, new RoutedEventArgs()); return Task.CompletedTask; }),
+        };
+
+        UI.CommandPalette.PaletteResult result = await UI.CommandPalette.ShowAsync(
+            Content.XamlRoot,
+            commands,
+            path => !string.IsNullOrWhiteSpace(path) && path.Contains('\\'));
+
+        if (result.GoPath is not null)
+        {
+            await SelectPathAsync(result.GoPath);
+        }
+        else if (result.Chosen is not null)
+        {
+            await result.Chosen.Run();
+        }
+    }
+
     private void OnUndoClick(object sender, RoutedEventArgs e)
     {
         _ = RunOnUiThreadAsync(async () => await ViewModel.UndoAsync());
