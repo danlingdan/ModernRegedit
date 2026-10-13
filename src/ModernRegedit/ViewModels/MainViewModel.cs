@@ -131,6 +131,15 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial string RiskMessage { get; private set; } = string.Empty;
 
+    /// <summary>键没有任何值（仅未设置的默认值占位行）时显示引导。</summary>
+    [ObservableProperty]
+    public partial Visibility ValueListEmptyVisibility { get; private set; } = Visibility.Collapsed;
+
+    [ObservableProperty]
+    public partial bool IsLoadingValues { get; private set; }
+
+    public Visibility LoadingRingVisibility => IsLoadingValues ? Visibility.Visible : Visibility.Collapsed;
+
     public Visibility CancelButtonVisibility => IsSearchRunning ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility CloseButtonVisibility => IsSearchRunning ? Visibility.Collapsed : Visibility.Visible;
@@ -815,6 +824,8 @@ public partial class MainViewModel : ObservableObject
         _selectedSubKeyCount = 0;
         _selectedValueCount = 0;
         _isLoadingValues = true;
+        IsLoadingValues = true;
+        ValueListEmptyVisibility = Visibility.Collapsed;
         Values.Clear();
         OnPropertyChanged(nameof(StatusText));
 
@@ -859,6 +870,7 @@ public partial class MainViewModel : ObservableObject
                 _selectedSubKeyCount = subKeyCount;
                 _selectedValueCount = valueCount;
                 _isLoadingValues = false;
+                IsLoadingValues = false;
                 Values.Clear();
                 SelectedValueRow = null;
 
@@ -881,6 +893,11 @@ public partial class MainViewModel : ObservableObject
                         Values.Add(MakeRow(name, name, kind, raw, data));
                     }
                 }
+
+                // 只有未设置的默认值占位行 → 空状态引导。
+                ValueListEmptyVisibility = Values.Count == 1 && Values[0].IsUnset
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
 
                 // 搜索结果跳转：选中命中的值行
                 string? pending = PendingJumpValueName;
@@ -922,7 +939,9 @@ public partial class MainViewModel : ObservableObject
         _selectedSubKeyCount = 0;
         _selectedValueCount = 0;
         _isLoadingValues = false;
+        IsLoadingValues = false;
         _statusError = null;
+        ValueListEmptyVisibility = Visibility.Collapsed;
         Values.Clear();
         OnPropertyChanged(nameof(StatusText));
 

@@ -32,5 +32,6 @@
   <data name="Header_Value.Text" xml:space="preserve"><value>Value</value></data>
   <data name="Value_Default" xml:space="preserve"><value>(Default)</value></data>
   <data name="Value_NotSet" xml:space="preserve"><value>(value not set)</value></data>
+  <data name="EmptyValues_Hint.Text" xml:space="preserve"><value>This key has no values. Right-click to create one.</value></data>
   <data name="Status_Ready" xml:space="preserve"><value>Ready</value></data>
 </root>

@@ -291,52 +291,80 @@
                     FontWeight="SemiBold" />
             </Grid>
 
-            <ListView
-                x:Name="ValuesList"
-                AutomationProperties.AutomationId="ValuesList"
-                Grid.Row="3"
-                ItemsSource="{x:Bind ViewModel.Values}"
-                SelectedItem="{x:Bind ViewModel.SelectedValueRow, Mode=TwoWay}"
-                SelectionMode="Single"
-                DoubleTapped="OnValuesDoubleTapped"
-                RightTapped="OnValuesRightTapped">
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="vm:RegistryValueRow">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="280" />
-                                <ColumnDefinition Width="180" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+            <Grid Grid.Row="3">
+                <ListView
+                    x:Name="ValuesList"
+                    AutomationProperties.AutomationId="ValuesList"
+                    ItemsSource="{x:Bind ViewModel.Values}"
+                    SelectedItem="{x:Bind ViewModel.SelectedValueRow, Mode=TwoWay}"
+                    SelectionMode="Single"
+                    DoubleTapped="OnValuesDoubleTapped"
+                    RightTapped="OnValuesRightTapped">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="MinHeight" Value="32" />
+                            <Setter Property="VerticalContentAlignment" Value="Center" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:RegistryValueRow">
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="280" />
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
 
-                            <StackPanel
-                                Grid.Column="0"
-                                Orientation="Horizontal"
-                                Spacing="8"
-                                VerticalAlignment="Center">
-                                <SymbolIcon Symbol="{x:Bind KindSymbol}" Foreground="{x:Bind KindBrush}" />
+                                <StackPanel
+                                    Grid.Column="0"
+                                    Orientation="Horizontal"
+                                    Spacing="8"
+                                    VerticalAlignment="Center">
+                                    <SymbolIcon Symbol="{x:Bind KindSymbol}" Foreground="{x:Bind KindBrush}" />
+                                    <TextBlock
+                                        Text="{x:Bind Name}"
+                                        VerticalAlignment="Center"
+                                        TextTrimming="CharacterEllipsis"
+                                        ToolTipService.ToolTip="{x:Bind Name}" />
+                                </StackPanel>
                                 <TextBlock
-                                    Text="{x:Bind Name}"
+                                    Grid.Column="1"
+                                    Text="{x:Bind KindDisplay}"
                                     VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                            <TextBlock
-                                Grid.Column="1"
-                                Text="{x:Bind KindDisplay}"
-                                VerticalAlignment="Center"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                TextTrimming="CharacterEllipsis" />
-                            <TextBlock
-                                Grid.Column="2"
-                                Text="{x:Bind DataDisplay}"
-                                VerticalAlignment="Center"
-                                FontFamily="Cascadia Mono"
-                                FontSize="12"
-                                TextTrimming="CharacterEllipsis" />
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                                <TextBlock
+                                    Grid.Column="2"
+                                    Text="{x:Bind DataDisplay}"
+                                    VerticalAlignment="Center"
+                                    FontFamily="Cascadia Mono"
+                                    FontSize="12"
+                                    TextTrimming="CharacterEllipsis"
+                                    ToolTipService.ToolTip="{x:Bind DataDisplay}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <!--  空状态引导：键没有任何值时居中提示（不拦截列表交互）  -->
+                <StackPanel
+                    IsHitTestVisible="False"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="8"
+                    Visibility="{x:Bind ViewModel.ValueListEmptyVisibility, Mode=OneWay}">
+                    <FontIcon
+                        FontFamily="Segoe Fluent Icons"
+                        Glyph="&#xE8B7;"
+                        FontSize="28"
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock
+                        x:Uid="EmptyValues_Hint"
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Grid>
 
             <Grid
                 Grid.Row="4"
@@ -388,6 +416,12 @@
                     SelectionMode="Single"
                     DoubleTapped="OnResultsDoubleTapped"
                     KeyDown="OnResultsKeyDown">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="MinHeight" Value="32" />
+                            <Setter Property="VerticalContentAlignment" Value="Center" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
                     <ListView.Header>
                         <Grid Padding="12,6" ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
@@ -441,10 +475,19 @@
             Padding="12,4"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
             CornerRadius="4">
-            <TextBlock
-                Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                FontSize="12"
-                TextTrimming="CharacterEllipsis" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <ProgressRing
+                    Width="16"
+                    Height="16"
+                    VerticalAlignment="Center"
+                    IsActive="{x:Bind ViewModel.IsLoadingValues, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.LoadingRingVisibility, Mode=OneWay}" />
+                <TextBlock
+                    Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                    FontSize="12"
+                    VerticalAlignment="Center"
+                    TextTrimming="CharacterEllipsis" />
+            </StackPanel>
         </Border>
     </Grid>
 

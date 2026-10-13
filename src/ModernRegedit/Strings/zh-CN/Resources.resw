@@ -33,5 +33,6 @@
   <data name="Header_Data2.Text" xml:space="preserve"><value>数据</value></data>
   <data name="Value_Default" xml:space="preserve"><value>(默认)</value></data>
   <data name="Value_NotSet" xml:space="preserve"><value>(未设置)</value></data>
+  <data name="EmptyValues_Hint.Text" xml:space="preserve"><value>此键没有值。右键可新建。</value></data>
   <data name="Status_Ready" xml:space="preserve"><value>就绪</value></data>
 </root>
