@@ -171,6 +171,17 @@ public partial class MainViewModel : ObservableObject
 
     public string? LastKey => _settings.LastKey;
 
+    public int ThemeSetting => _settings.Theme;
+
+    public int BackupRetentionSetting => _settings.BackupRetention;
+
+    public void UpdateSettings(int theme, int backupRetention)
+    {
+        _settings.Theme = theme;
+        _settings.BackupRetention = backupRetention;
+        SaveSettings();
+    }
+
     public void SaveSettings()
     {
         _settings.Favorites = Favorites.ToList();

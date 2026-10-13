@@ -39,9 +39,12 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <AppBarButton
@@ -153,9 +156,18 @@
                 </AppBarButton.Flyout>
             </AppBarButton>
 
+            <AppBarButton
+                Grid.Column="10"
+                AutomationProperties.AutomationId="SettingsButton"
+                Icon="Setting"
+                Label="Settings"
+                IsCompact="True"
+                ToolTipService.ToolTip="Settings"
+                Click="OnSettingsClick" />
+
             <TextBox
                 x:Name="SearchBox"
-                Grid.Column="10"
+                Grid.Column="11"
                 Width="240"
                 AutomationProperties.AutomationId="SearchBox"
                 PlaceholderText="Search keys, values, data"

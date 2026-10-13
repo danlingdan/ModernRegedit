@@ -31,8 +31,25 @@ public sealed partial class MainWindow : Window
         ViewModel.Initialize(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
         SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
         ApplyTitleBarTheme();
+        ApplyStartupSettings();
         Closed += (_, _) => ViewModel.PersistSession();
         _ = RestoreLastLocationAsync();
+    }
+
+    /// <summary>启动时应用持久化设置：初始主题与备份保留份数。</summary>
+    private void ApplyStartupSettings()
+    {
+        if (ViewModel.ThemeSetting is >= 0 and <= 2)
+        {
+            _themeIndex = ViewModel.ThemeSetting;
+            RootGrid.RequestedTheme = ThemeCycle[_themeIndex];
+            ThemeButton.Label = ThemeLabels[_themeIndex];
+        }
+
+        if (ViewModel.BackupRetentionSetting > 0)
+        {
+            Services.RegistryWriteService.BackupRetentionOverride = ViewModel.BackupRetentionSetting;
+        }
     }
 
     /// <summary>位置记忆：启动时回到上次退出所在键。</summary>
@@ -139,6 +156,50 @@ public sealed partial class MainWindow : Window
         RootGrid.RequestedTheme = ThemeCycle[_themeIndex];
         ThemeButton.Label = ThemeLabels[_themeIndex];
         ApplyTitleBarTheme();
+        ViewModel.UpdateSettings(_themeIndex, ViewModel.BackupRetentionSetting);
+    }
+
+    private async void OnSettingsClick(object sender, RoutedEventArgs e)
+    {
+        var retention = new NumberBox
+        {
+            Header = "Backup retention (files)",
+            Value = ViewModel.BackupRetentionSetting,
+            Minimum = 10,
+            Maximum = 1000,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+        };
+
+        var themeList = new ComboBox { Header = "Theme", Width = 200 };
+        foreach (string label in ThemeLabels)
+        {
+            themeList.Items.Add(new ComboBoxItem { Content = label });
+        }
+        themeList.SelectedIndex = ViewModel.ThemeSetting;
+
+        var panel = new StackPanel { Spacing = 12, MinWidth = 320 };
+        panel.Children.Add(themeList);
+        panel.Children.Add(retention);
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Settings",
+            Content = panel,
+            PrimaryButtonText = "Save",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            _themeIndex = themeList.SelectedIndex;
+            RootGrid.RequestedTheme = ThemeCycle[_themeIndex];
+            ThemeButton.Label = ThemeLabels[_themeIndex];
+            ApplyTitleBarTheme();
+            ViewModel.UpdateSettings(_themeIndex, (int)retention.Value);
+            Services.RegistryWriteService.BackupRetentionOverride = (int)retention.Value;
+        }
     }
 
     private void OnFavoritesClick(object sender, RoutedEventArgs e)

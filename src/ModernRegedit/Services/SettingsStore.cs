@@ -15,6 +15,13 @@ public sealed class SettingsStore
     [JsonPropertyName("is32BitView")]
     public bool Is32BitView { get; set; }
 
+    /// <summary>主题：0=跟随系统 1=亮 2=暗。</summary>
+    [JsonPropertyName("theme")]
+    public int Theme { get; set; }
+
+    [JsonPropertyName("backupRetention")]
+    public int BackupRetention { get; set; } = 200;
+
     private static string FilePath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ModernRegedit", "settings.json");

@@ -85,6 +85,9 @@ public static class RegistryWriteService
         return result.Ok ? 0 : 1;
     }
 
+    /// <summary>备份保留份数；0 或以下用默认值。</summary>
+    public static int BackupRetentionOverride { get; set; }
+
     public static async Task<WriteResult> ApplyAsync(IReadOnlyList<WriteOperation> operations, RegistryView view)
     {
         // 写前自动备份（读取不需提权）；备份失败则中止写入——宁可不写，不可不可恢复。
@@ -140,7 +143,7 @@ public static class RegistryWriteService
 
             if (wroteAny)
             {
-                EnforceRetention(dir, MaxBackupFiles);
+                EnforceRetention(dir, BackupRetentionOverride > 0 ? BackupRetentionOverride : MaxBackupFiles);
             }
 
             return true;
