@@ -134,7 +134,7 @@ public partial class MainViewModel : ObservableObject
 
             if (SelectedNode is null)
             {
-                return "Ready";
+                return Localize("Status_Ready");
             }
 
             string view = Is32BitView ? "32-bit view" : "64-bit view";
@@ -836,11 +836,11 @@ public partial class MainViewModel : ObservableObject
                 if (defaultIndex >= 0)
                 {
                     (string name, RegKind kind, string data, byte[] raw) = decoded[defaultIndex];
-                    Values.Add(MakeRow("(Default)", name, kind, raw, data));
+                    Values.Add(MakeRow(Localize("Value_Default"), decoded[defaultIndex].Name, decoded[defaultIndex].Kind, decoded[defaultIndex].Raw, decoded[defaultIndex].Data));
                 }
                 else
                 {
-                    Values.Add(MakeRow("(Default)", string.Empty, RegKind.Sz, Array.Empty<byte>(), "(value not set)", isUnset: true));
+                    Values.Add(MakeRow(Localize("Value_Default"), string.Empty, RegKind.Sz, Array.Empty<byte>(), Localize("Value_NotSet"), isUnset: true));
                 }
 
                 foreach ((string name, RegKind kind, string data, byte[] raw) in decoded)
@@ -902,6 +902,9 @@ public partial class MainViewModel : ObservableObject
 
         return await ResolveNodeAsync(currentPath);
     }
+
+    internal static string Localize(string key) =>
+        new Microsoft.Windows.ApplicationModel.Resources.ResourceManager().MainResourceMap.GetValue("Resources/" + key).ValueAsString;
 
     private static RegistryValueRow MakeRow(
         string displayName, string valueName, RegKind kind, byte[] data, string dataDisplay, bool isUnset = false) => new()

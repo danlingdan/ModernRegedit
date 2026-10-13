@@ -47,85 +47,79 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <AppBarButton
+<AppBarButton
+                x:Uid="Toolbar_Undo"
                 Grid.Column="0"
                 Icon="Undo"
-                Label="Undo"
                 IsCompact="True"
                 IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}"
-                ToolTipService.ToolTip="Undo (Ctrl+Z)"
                 Click="OnUndoClick" />
 
-            <AppBarButton
+<AppBarButton
+                x:Uid="Toolbar_Redo"
                 Grid.Column="1"
                 Icon="Redo"
-                Label="Redo"
                 IsCompact="True"
                 IsEnabled="{x:Bind ViewModel.CanRedo, Mode=OneWay}"
-                ToolTipService.ToolTip="Redo (Ctrl+Y)"
                 Click="OnRedoClick" />
 
-            <AppBarButton
+<AppBarButton
+                x:Uid="Toolbar_Back"
                 Grid.Column="2"
                 Icon="Back"
-                Label="Back"
                 IsCompact="True"
                 IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}"
-                ToolTipService.ToolTip="Back (Alt+Left)"
                 Click="OnBackClick">
                 <AppBarButton.KeyboardAccelerators>
                     <KeyboardAccelerator Modifiers="Menu" Key="Left" />
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
 
-            <AppBarButton
+<AppBarButton
+                x:Uid="Toolbar_Forward"
                 Grid.Column="3"
                 Icon="Forward"
-                Label="Forward"
                 IsCompact="True"
                 IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}"
-                ToolTipService.ToolTip="Forward (Alt+Right)"
                 Click="OnForwardClick">
                 <AppBarButton.KeyboardAccelerators>
                     <KeyboardAccelerator Modifiers="Menu" Key="Right" />
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
 
-            <AppBarButton
+<AppBarButton
+                x:Uid="Toolbar_Up"
                 Grid.Column="4"
                 Icon="Up"
-                Label="Up"
                 IsCompact="True"
-                ToolTipService.ToolTip="Up one level (Alt+Up)"
                 Click="OnUpClick">
                 <AppBarButton.KeyboardAccelerators>
                     <KeyboardAccelerator Modifiers="Menu" Key="Up" />
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
 
-            <AppBarButton
+<AppBarButton
+                x:Uid="Toolbar_Favorites"
                 Grid.Column="7"
                 x:Name="FavoritesButton"
                 AutomationProperties.AutomationId="FavoritesButton"
                 Icon="Favorite"
                 Label="Favorites"
                 IsCompact="True"
-                ToolTipService.ToolTip="Favorite keys"
                 Click="OnFavoritesClick" />
 
-            <AppBarToggleButton
+<AppBarToggleButton
+                x:Uid="Toolbar_32Bit"
                 Grid.Column="5"
-                Label="32-bit"
-                ToolTipService.ToolTip="Show the 32-bit registry view"
                 Checked="OnViewToggled"
                 Unchecked="OnViewToggled" />
 
-            <AppBarButton
+<AppBarButton
+                x:Uid="Toolbar_Theme"
                 x:Name="ThemeButton"
                 Grid.Column="6"
                 AutomationProperties.AutomationId="ThemeButton"
                 Label="System"
-                ToolTipService.ToolTip="Cycle system / light / dark theme"
                 Click="OnThemeClick">
                 <AppBarButton.Icon>
                     <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE790;" />
@@ -133,6 +127,7 @@
             </AppBarButton>
 
             <TextBox
+                x:Uid="AddressBar"
                 x:Name="AddressBar"
                 Grid.Column="8"
                 PlaceholderText="Type a key path, e.g. HKLM\SOFTWARE\Microsoft"
@@ -140,11 +135,10 @@
                 KeyDown="OnAddressKeyDown" />
 
             <AppBarButton
+                x:Uid="ScopeButton"
                 Grid.Column="9"
                 Icon="Filter"
-                Label="Scope"
-                IsCompact="True"
-                ToolTipService.ToolTip="Choose where to match">
+                IsCompact="True">
                 <AppBarButton.Flyout>
                     <Flyout Placement="Bottom">
                         <StackPanel Spacing="8" Margin="4">
@@ -156,21 +150,21 @@
                 </AppBarButton.Flyout>
             </AppBarButton>
 
-            <AppBarButton
+<AppBarButton
+                x:Uid="Toolbar_Settings"
                 Grid.Column="10"
                 AutomationProperties.AutomationId="SettingsButton"
                 Icon="Setting"
                 Label="Settings"
                 IsCompact="True"
-                ToolTipService.ToolTip="Settings"
                 Click="OnSettingsClick" />
 
-            <TextBox
+<TextBox
+                x:Uid="SearchBox"
                 x:Name="SearchBox"
                 Grid.Column="11"
                 Width="240"
                 AutomationProperties.AutomationId="SearchBox"
-                PlaceholderText="Search keys, values, data"
                 Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                 KeyDown="OnSearchKeyDown" />
         </Grid>
@@ -341,9 +335,9 @@
                                 <ColumnDefinition Width="160" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Path" FontWeight="SemiBold" />
-                            <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold" />
-                            <TextBlock Grid.Column="2" Text="Data" FontWeight="SemiBold" />
+                            <TextBlock x:Uid="Header_Path" Grid.Column="0" FontWeight="SemiBold" />
+                            <TextBlock x:Uid="Header_Value" Grid.Column="1" FontWeight="SemiBold" />
+                            <TextBlock x:Uid="Header_Data2" Grid.Column="2" FontWeight="SemiBold" />
                         </Grid>
                     </ListView.Header>
                     <ListView.ItemTemplate>

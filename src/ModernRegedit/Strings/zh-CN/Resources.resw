@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" id="root" />
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+
+  <data name="Toolbar_Undo.Label" xml:space="preserve"><value>撤销</value></data>
+  <data name="Toolbar_Undo.ToolTipService.ToolTip" xml:space="preserve"><value>撤销 (Ctrl+Z)</value></data>
+  <data name="Toolbar_Redo.Label" xml:space="preserve"><value>重做</value></data>
+  <data name="Toolbar_Redo.ToolTipService.ToolTip" xml:space="preserve"><value>重做 (Ctrl+Y)</value></data>
+  <data name="Toolbar_Back.Label" xml:space="preserve"><value>后退</value></data>
+  <data name="Toolbar_Back.ToolTipService.ToolTip" xml:space="preserve"><value>后退 (Alt+←)</value></data>
+  <data name="Toolbar_Forward.Label" xml:space="preserve"><value>前进</value></data>
+  <data name="Toolbar_Forward.ToolTipService.ToolTip" xml:space="preserve"><value>前进 (Alt+→)</value></data>
+  <data name="Toolbar_Up.Label" xml:space="preserve"><value>上级</value></data>
+  <data name="Toolbar_Up.ToolTipService.ToolTip" xml:space="preserve"><value>上一级 (Alt+↑)</value></data>
+  <data name="Toolbar_32Bit.Label" xml:space="preserve"><value>32 位</value></data>
+  <data name="Toolbar_32Bit.ToolTipService.ToolTip" xml:space="preserve"><value>显示 32 位注册表视图</value></data>
+  <data name="Toolbar_Theme.ToolTipService.ToolTip" xml:space="preserve"><value>循环 系统/亮色/暗色 主题</value></data>
+  <data name="Toolbar_Favorites.ToolTipService.ToolTip" xml:space="preserve"><value>收藏的键</value></data>
+  <data name="Toolbar_Settings.ToolTipService.ToolTip" xml:space="preserve"><value>设置</value></data>
+  <data name="ScopeButton.Label" xml:space="preserve"><value>范围</value></data>
+  <data name="ScopeButton.ToolTipService.ToolTip" xml:space="preserve"><value>选择匹配范围</value></data>
+  <data name="AddressBar.PlaceholderText" xml:space="preserve"><value>输入键路径，如 HKLM\SOFTWARE\Microsoft</value></data>
+  <data name="SearchBox.PlaceholderText" xml:space="preserve"><value>搜索键名、值名、数据</value></data>
+  <data name="Header_Name.Text" xml:space="preserve"><value>名称</value></data>
+  <data name="Header_Type.Text" xml:space="preserve"><value>类型</value></data>
+  <data name="Header_Data.Text" xml:space="preserve"><value>数据</value></data>
+  <data name="Header_Path.Text" xml:space="preserve"><value>路径</value></data>
+  <data name="Header_Value.Text" xml:space="preserve"><value>值</value></data>
+  <data name="Header_Data2.Text" xml:space="preserve"><value>数据</value></data>
+  <data name="Value_Default" xml:space="preserve"><value>(默认)</value></data>
+  <data name="Value_NotSet" xml:space="preserve"><value>(未设置)</value></data>
+  <data name="Status_Ready" xml:space="preserve"><value>就绪</value></data>
+</root>
