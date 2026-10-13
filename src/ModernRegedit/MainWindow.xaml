@@ -9,8 +9,7 @@
     <Grid
         x:Name="RootGrid"
         ColumnSpacing="8"
-        RowSpacing="4"
-        Margin="8">
+        RowSpacing="4">
         <Grid.KeyboardAccelerators>
             <KeyboardAccelerator Modifiers="Control" Key="Z" Invoked="OnUndoAccelerator" />
             <KeyboardAccelerator Modifiers="Control" Key="Y" Invoked="OnRedoAccelerator" />
@@ -18,6 +17,7 @@
             <KeyboardAccelerator Key="F6" Invoked="OnF6Accelerator" />
         </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -28,9 +28,37 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
+        <!--  集成式标题栏：Mica 贯通，整行拖拽区（SetTitleBar），无交互控件  -->
         <Grid
+            x:Name="AppTitleBar"
             Grid.Row="0"
             Grid.ColumnSpan="2"
+            Height="48">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Image
+                Grid.Column="0"
+                Width="16"
+                Height="16"
+                Margin="16,0,10,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Source="ms-appx:///Assets/Square44x44Logo.targetsize-24.png" />
+            <TextBlock
+                x:Name="AppTitleText"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="ModernRegedit" />
+        </Grid>
+
+        <Grid
+            Grid.Row="1"
+            Grid.ColumnSpan="2"
+            Margin="16,0,16,4"
             ColumnSpacing="4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -39,34 +67,19 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-<AppBarButton
-                x:Uid="Toolbar_Undo"
-                Grid.Column="0"
-                Icon="Undo"
-                IsCompact="True"
-                IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}"
-                Click="OnUndoClick" />
-
-<AppBarButton
-                x:Uid="Toolbar_Redo"
-                Grid.Column="1"
-                Icon="Redo"
-                IsCompact="True"
-                IsEnabled="{x:Bind ViewModel.CanRedo, Mode=OneWay}"
-                Click="OnRedoClick" />
-
-<AppBarButton
+            <AppBarButton
                 x:Uid="Toolbar_Back"
-                Grid.Column="2"
+                Grid.Column="0"
                 Icon="Back"
                 IsCompact="True"
                 IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}"
@@ -76,9 +89,9 @@
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
 
-<AppBarButton
+            <AppBarButton
                 x:Uid="Toolbar_Forward"
-                Grid.Column="3"
+                Grid.Column="1"
                 Icon="Forward"
                 IsCompact="True"
                 IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}"
@@ -88,9 +101,9 @@
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
 
-<AppBarButton
+            <AppBarButton
                 x:Uid="Toolbar_Up"
-                Grid.Column="4"
+                Grid.Column="2"
                 Icon="Up"
                 IsCompact="True"
                 Click="OnUpClick">
@@ -99,45 +112,36 @@
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
 
-<AppBarButton
-                x:Uid="Toolbar_Favorites"
-                Grid.Column="7"
-                x:Name="FavoritesButton"
-                AutomationProperties.AutomationId="FavoritesButton"
-                Icon="Favorite"
-                Label="Favorites"
+            <AppBarSeparator Grid.Column="3" />
+
+            <AppBarButton
+                x:Uid="Toolbar_Undo"
+                Grid.Column="4"
+                Icon="Undo"
                 IsCompact="True"
-                Click="OnFavoritesClick" />
+                IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}"
+                Click="OnUndoClick" />
 
-<AppBarToggleButton
-                x:Uid="Toolbar_32Bit"
+            <AppBarButton
+                x:Uid="Toolbar_Redo"
                 Grid.Column="5"
-                Checked="OnViewToggled"
-                Unchecked="OnViewToggled" />
-
-<AppBarButton
-                x:Uid="Toolbar_Theme"
-                x:Name="ThemeButton"
-                Grid.Column="6"
-                AutomationProperties.AutomationId="ThemeButton"
-                Label="System"
-                Click="OnThemeClick">
-                <AppBarButton.Icon>
-                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE790;" />
-                </AppBarButton.Icon>
-            </AppBarButton>
+                Icon="Redo"
+                IsCompact="True"
+                IsEnabled="{x:Bind ViewModel.CanRedo, Mode=OneWay}"
+                Click="OnRedoClick" />
 
             <TextBox
                 x:Uid="AddressBar"
                 x:Name="AddressBar"
-                Grid.Column="8"
+                Grid.Column="6"
+                VerticalAlignment="Center"
                 PlaceholderText="Type a key path, e.g. HKLM\SOFTWARE\Microsoft"
                 Text="{x:Bind ViewModel.AddressText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                 KeyDown="OnAddressKeyDown" />
 
             <AppBarButton
                 x:Uid="ScopeButton"
-                Grid.Column="9"
+                Grid.Column="7"
                 Icon="Filter"
                 IsCompact="True">
                 <AppBarButton.Flyout>
@@ -151,29 +155,63 @@
                 </AppBarButton.Flyout>
             </AppBarButton>
 
-<AppBarButton
-                x:Uid="Toolbar_Settings"
+            <TextBox
+                x:Uid="SearchBox"
+                x:Name="SearchBox"
+                Grid.Column="8"
+                Width="240"
+                VerticalAlignment="Center"
+                AutomationProperties.AutomationId="SearchBox"
+                Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                KeyDown="OnSearchKeyDown" />
+
+            <AppBarSeparator Grid.Column="9" />
+
+            <AppBarToggleButton
+                x:Uid="Toolbar_32Bit"
+                x:Name="View32Toggle"
                 Grid.Column="10"
+                Checked="OnViewToggled"
+                Unchecked="OnViewToggled" />
+
+            <AppBarButton
+                x:Uid="Toolbar_Theme"
+                x:Name="ThemeButton"
+                Grid.Column="11"
+                AutomationProperties.AutomationId="ThemeButton"
+                Label="System"
+                IsCompact="True"
+                Click="OnThemeClick">
+                <AppBarButton.Icon>
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE790;" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+
+            <AppBarButton
+                x:Uid="Toolbar_Favorites"
+                Grid.Column="12"
+                x:Name="FavoritesButton"
+                AutomationProperties.AutomationId="FavoritesButton"
+                Icon="Favorite"
+                Label="Favorites"
+                IsCompact="True"
+                Click="OnFavoritesClick" />
+
+            <AppBarButton
+                x:Uid="Toolbar_Settings"
+                Grid.Column="13"
                 AutomationProperties.AutomationId="SettingsButton"
                 Icon="Setting"
                 Label="Settings"
                 IsCompact="True"
                 Click="OnSettingsClick" />
-
-<TextBox
-                x:Uid="SearchBox"
-                x:Name="SearchBox"
-                Grid.Column="11"
-                Width="240"
-                AutomationProperties.AutomationId="SearchBox"
-                Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                KeyDown="OnSearchKeyDown" />
         </Grid>
 
         <TreeView
             x:Name="KeyTree"
-            Grid.Row="1"
+            Grid.Row="2"
             Grid.Column="0"
+            Margin="16,0,0,0"
             ItemsSource="{x:Bind ViewModel.Roots}"
             Expanding="OnExpanding"
             RightTapped="OnTreeRightTapped"
@@ -197,8 +235,9 @@
         </TreeView>
 
         <Grid
-            Grid.Row="1"
+            Grid.Row="2"
             Grid.Column="1"
+            Margin="0,0,16,0"
             RowSpacing="4">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -376,8 +415,9 @@
         </Grid>
 
         <Border
-            Grid.Row="2"
+            Grid.Row="3"
             Grid.ColumnSpan="2"
+            Margin="16,0,16,8"
             Padding="12,4"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
             CornerRadius="4">

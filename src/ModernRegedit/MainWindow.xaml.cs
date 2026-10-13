@@ -30,10 +30,41 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         ViewModel.Initialize(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
         SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
-        ApplyTitleBarTheme();
+
+        // 集成式标题栏：内容贯通到标题栏，Mica 显示；SetTitleBar 用无交互元素做整行拖拽区。
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
+        AppWindow.TitleBar.PreferredHeightOption = Microsoft.UI.Windowing.TitleBarHeightOption.Tall;
+        Activated += OnWindowActivated;
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+
         ApplyStartupSettings();
         Closed += (_, _) => ViewModel.PersistSession();
         _ = RestoreLastLocationAsync();
+    }
+
+    private void OnWindowActivated(object sender, Microsoft.UI.Xaml.WindowActivatedEventArgs args)
+    {
+        // 非激活态降低标题文字对比度（Fluent 规范：窗口激活状态要可辨识）。
+        AppTitleText.Foreground = (Microsoft.UI.Xaml.Media.SolidColorBrush)Application.Current.Resources[
+            args.WindowActivationState == WindowActivationState.Deactivated
+                ? "WindowCaptionForegroundDisabled"
+                : "WindowCaptionForeground"];
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ViewModel.SelectedNode))
+        {
+            UpdateWindowTitle();
+        }
+    }
+
+    /// <summary>任务栏/Alt+Tab 标题带上当前键路径，便于辨认窗口位置。</summary>
+    private void UpdateWindowTitle()
+    {
+        string? path = ViewModel.SelectedNode?.FullPath;
+        Title = string.IsNullOrEmpty(path) ? "ModernRegedit" : $"{path} - ModernRegedit";
     }
 
     /// <summary>启动时应用持久化设置：初始主题与备份保留份数。</summary>
@@ -155,7 +186,6 @@ public sealed partial class MainWindow : Window
         _themeIndex = (_themeIndex + 1) % ThemeCycle.Length;
         RootGrid.RequestedTheme = ThemeCycle[_themeIndex];
         ThemeButton.Label = ThemeLabels[_themeIndex];
-        ApplyTitleBarTheme();
         ViewModel.UpdateSettings(_themeIndex, ViewModel.BackupRetentionSetting);
     }
 
@@ -196,7 +226,6 @@ public sealed partial class MainWindow : Window
             _themeIndex = themeList.SelectedIndex;
             RootGrid.RequestedTheme = ThemeCycle[_themeIndex];
             ThemeButton.Label = ThemeLabels[_themeIndex];
-            ApplyTitleBarTheme();
             ViewModel.UpdateSettings(_themeIndex, (int)retention.Value);
             Services.RegistryWriteService.BackupRetentionOverride = (int)retention.Value;
         }
@@ -850,38 +879,6 @@ public sealed partial class MainWindow : Window
                 SelectTreeNode(node, recordHistory: true);
             }
         });
-    }
-
-    /// <summary>标题栏配色跟随内容主题，避免暗色内容配亮色标题栏的割裂感。</summary>
-    private void ApplyTitleBarTheme()
-    {
-        Microsoft.UI.Windowing.AppWindow? appWindow = AppWindow;
-        if (appWindow is null)
-        {
-            return;
-        }
-
-        bool dark = ThemeCycle[_themeIndex] switch
-        {
-            ElementTheme.Dark => true,
-            ElementTheme.Light => false,
-            _ => RootGrid.ActualTheme == ElementTheme.Dark,
-        };
-
-        Windows.UI.Color background = dark
-            ? Windows.UI.Color.FromArgb(255, 32, 32, 32)
-            : Windows.UI.Color.FromArgb(255, 243, 243, 243);
-        Windows.UI.Color foreground = dark
-            ? Windows.UI.Color.FromArgb(255, 255, 255, 255)
-            : Windows.UI.Color.FromArgb(255, 0, 0, 0);
-
-        appWindow.TitleBar.BackgroundColor = background;
-        appWindow.TitleBar.ForegroundColor = foreground;
-        appWindow.TitleBar.ButtonBackgroundColor = background;
-        appWindow.TitleBar.ButtonForegroundColor = foreground;
-        appWindow.TitleBar.ButtonHoverBackgroundColor = dark
-            ? Windows.UI.Color.FromArgb(255, 45, 45, 45)
-            : Windows.UI.Color.FromArgb(255, 218, 218, 218);
     }
 
     private void SelectTreeNode(RegistryKeyNode node, bool recordHistory)
