@@ -50,10 +50,14 @@ dotnet build src/ModernRegedit/ModernRegedit.csproj -c Debug -p:Platform=x64
 - `RegEnumValueW` 数据缓冲不足（ERROR_MORE_DATA）时不保证回写名字长度：必须按所需数据大小重枚举同一索引，统一走 `RegistryService.EnumerateValues`。
 - 后台线程不可碰 WinUI 对象（如 `Application.Current.Resources`）：跨线程异常会以 stowed exception 直接 fail-fast，且 UI 回调可能永不执行。
 - 传给 `DispatcherQueue.TryEnqueue` 的批列表必须传快照：排队后源列表会被复用清空，直接传引用会与 UI 回调竞争。
+- 自定义 `Program.Main`（DISABLE_XAML_GENERATED_MAIN）时，装 `DispatcherQueueSynchronizationContext` 必须放在 `Application.Start` 回调内（那时 UI 线程才有 DispatcherQueue）；漏装则 await 续体回落线程池，UI 调用报 RPC_E_WRONG_THREAD。
+- `x:Bind` TwoWay 绑 TextBox.Text 默认失焦才回写：实时响应须加 `UpdateSourceTrigger=PropertyChanged`。
+- 本机环境下文件选择器（WinUI FileSavePicker 与 Win32 IFileDialog::Show）静默挂起：无窗口、不返回、不抛异常（疑似 microsoft-ui-xaml#8026 同族、机器相关）。导出走 Downloads 自动命名，导入粘贴路径；将来恢复对话框前先在新环境复测。
+- 打包开发注册（Add-AppxPackage -Register）改清单后同版本会报 0x80073CFB：升版本号或先 Remove-AppxPackage。
 - TFM 用 `net10.0-windows10.0.26100`（28000 的 SDK 投影未发布）。
 - 改包身份须与 [docs/商店发布信息.md](docs/商店发布信息.md) 同步。
 
 ## 当前状态与里程碑纪律
 
-- 当前：M2 完成（2026-10-13），下一里程碑见 PLAN.md §5。
+- 当前：M3 完成（2026-10-13），下一里程碑见 PLAN.md §5。
 - 里程碑完成时必须：PLAN.md 表格打勾 + CHANGELOG.md 追加条目 + push 后确认 CI 绿（`gh run watch`）。

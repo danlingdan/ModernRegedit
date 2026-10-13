@@ -16,7 +16,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Parallel full-registry search: root-sharded background walk, streaming results panel, 250 ms debounce, cancel, 10 000-result cap (M2)
 - Search scope checkboxes: key names / value names / value data (M2)
 - Jump from a search result to its key, with the matched value row selected (M2)
+- Registry editing: create / rename / delete keys and create / edit / delete values of all types, with context menus and confirmations (M3)
+- Per-type value editors: DWORD / QWORD with hex and decimal input, binary hex box, multi-string lines (M3)
+- Writes route through a UAC-elevated secondary instance (AppExecutionAlias + runas) so changes reach the real registry; unelevated and CLI (`--apply`) runs write directly (M3)
+- .reg export of a subtree in Registry Editor 5.00 format (UTF-16LE BOM, dword/hex/hex(2)/hex(7)/hex(b) encodings) to Downloads (M3)
+- .reg import with a diff preview (added / modified / deleted counts and rows) before applying (M3)
 
 ### Fixed
 
 - Value enumeration lost names when `RegEnumValue` returned `ERROR_MORE_DATA`; keys such as `HKCU\Control Panel\Desktop` silently showed 0 values (M2)
+- Key creation failed when intermediate keys did not exist; `RegCreateKeyEx` now receives the full path (M3)
