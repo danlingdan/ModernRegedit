@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
@@ -84,14 +85,97 @@ public static class RegistryWriteService
         return result.Ok ? 0 : 1;
     }
 
-    public static Task<WriteResult> ApplyAsync(IReadOnlyList<WriteOperation> operations, RegistryView view)
+    public static async Task<WriteResult> ApplyAsync(IReadOnlyList<WriteOperation> operations, RegistryView view)
     {
-        if (IsElevated || !HasPackageIdentity)
+        // 写前自动备份（读取不需提权）；备份失败则中止写入——宁可不写，不可不可恢复。
+        bool backedUp = await TryWriteBackupsAsync(operations, view);
+        if (!backedUp)
         {
-            return Task.Run(() => Execute(operations, view));
+            return new WriteResult(false, "Backup failed — write aborted. Nothing was changed.");
         }
 
-        return LaunchElevatedAsync(operations, view);
+        if (IsElevated || !HasPackageIdentity)
+        {
+            return await Task.Run(() => Execute(operations, view));
+        }
+
+        return await LaunchElevatedAsync(operations, view);
+    }
+
+    /// <summary>把每个受影响键的子树导出到备份目录（新建键跳过），并按数量保留策略清理旧备份。</summary>
+    private static async Task<bool> TryWriteBackupsAsync(IReadOnlyList<WriteOperation> operations, RegistryView view)
+    {
+        try
+        {
+            string dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "ModernRegedit", "backups");
+            Directory.CreateDirectory(dir);
+
+            string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
+            var service = new RegistryService();
+            int sequence = 0;
+            bool wroteAny = false;
+
+            foreach (string path in operations
+                .Where(o => o.Kind != WriteOpKind.CreateKey)
+                .Select(o => o.KeyPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!KeyExists(service, path, view))
+                {
+                    continue;
+                }
+
+                string leaf = path[(path.LastIndexOf('\\') + 1)..];
+                foreach (char c in Path.GetInvalidFileNameChars())
+                {
+                    leaf = leaf.Replace(c, '_');
+                }
+
+                string file = Path.Combine(dir, $"{timestamp}-{sequence++}-{leaf}.reg");
+                await RegFile.ExportAsync(service, path, view, file);
+                wroteAny = true;
+            }
+
+            if (wroteAny)
+            {
+                EnforceRetention(dir, MaxBackupFiles);
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private const int MaxBackupFiles = 200;
+
+    private static void EnforceRetention(string dir, int maxFiles)
+    {
+        var files = new DirectoryInfo(dir)
+            .EnumerateFiles("*.reg")
+            .OrderByDescending(f => f.LastWriteTimeUtc)
+            .ToList();
+        foreach (FileInfo file in files.Skip(maxFiles))
+        {
+            try { file.Delete(); } catch { }
+        }
+    }
+
+    private static bool KeyExists(RegistryService service, string path, RegistryView view)
+    {
+        try
+        {
+            _ = service.GetSubKeyCount(path, view);
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
     }
 
     public static WriteResult Execute(IReadOnlyList<WriteOperation> operations, RegistryView view)
