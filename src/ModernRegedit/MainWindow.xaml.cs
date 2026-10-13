@@ -312,6 +312,7 @@ public sealed partial class MainWindow : Window
         var panel = new StackPanel { Spacing = 12, MinWidth = 320 };
         panel.Children.Add(themeList);
         panel.Children.Add(retention);
+        panel.Children.Add(BuildAboutSection());
 
         var dialog = new ContentDialog
         {
@@ -331,6 +332,56 @@ public sealed partial class MainWindow : Window
             ViewModel.UpdateSettings(_themeIndex, (int)retention.Value);
             Services.RegistryWriteService.BackupRetentionOverride = (int)retention.Value;
         }
+    }
+
+    /// <summary>设置对话框的“关于”区：包版本、许可证、仓库链接、备份文件夹入口。</summary>
+    private static StackPanel BuildAboutSection()
+    {
+        var v = Windows.ApplicationModel.Package.Current.Id.Version;
+        string version = $"{v.Major}.{v.Minor}.{v.Build}";
+
+        var about = new StackPanel { Spacing = 4 };
+        about.Children.Add(new TextBlock
+        {
+            Text = $"ModernRegedit {version} — MIT License",
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+        });
+        about.Children.Add(new TextBlock
+        {
+            Text = "A modern registry editor for Windows. Provided as-is, without warranty.",
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = (Microsoft.UI.Xaml.Media.SolidColorBrush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+        });
+        about.Children.Add(new HyperlinkButton
+        {
+            Content = "GitHub repository",
+            NavigateUri = new Uri("https://github.com/danlingdan/ModernRegedit"),
+        });
+
+        var backups = new HyperlinkButton
+        {
+            Content = "Open backups folder",
+        };
+        backups.Click += async (_, _) =>
+        {
+            string dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "ModernRegedit", "backups");
+            Directory.CreateDirectory(dir);
+            await Windows.System.Launcher.LaunchFolderPathAsync(dir);
+        };
+        about.Children.Add(backups);
+
+        return new StackPanel
+        {
+            Spacing = 4,
+            Margin = new Thickness(0, 8, 0, 0),
+            Children =
+            {
+                new TextBlock { Text = "About", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
+                about,
+            },
+        };
     }
 
     private void OnFavoritesClick(object sender, RoutedEventArgs e)
