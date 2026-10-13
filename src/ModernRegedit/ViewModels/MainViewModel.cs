@@ -570,28 +570,45 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // 未展开的节点：标脏即可，下次展开按新状态加载。
-        if (!parent.IsExpanded || !parent.ChildrenLoaded)
+        await DiffReloadChildrenAsync(parent);
+    }
+
+    /// <summary>F5：差量重建当前键的子键列表并重载值面板。</summary>
+    public async Task RefreshCurrentAsync()
+    {
+        if (SelectedNode is null)
         {
-            parent.ChildrenLoaded = false;
-            parent.LoadTask = null;
-            parent.HasUnrealizedChildren = true;
-            if (parent.IsExpanded)
+            return;
+        }
+
+        await DiffReloadChildrenAsync(SelectedNode);
+        Select(SelectedNode);
+    }
+
+    /// <summary>差量重建 node 的子键列表（保持展开状态）。展开中的节点禁止全量重建（WinUI #8275 家族）。</summary>
+    private async Task DiffReloadChildrenAsync(RegistryKeyNode node)
+    {
+        // 未展开的节点：标脏即可，下次展开按新状态加载。
+        if (!node.IsExpanded || !node.ChildrenLoaded)
+        {
+            node.ChildrenLoaded = false;
+            node.LoadTask = null;
+            node.HasUnrealizedChildren = true;
+            if (node.IsExpanded)
             {
-                await EnsureChildrenLoadedAsync(parent);
+                await EnsureChildrenLoadedAsync(node);
             }
 
             return;
         }
 
-        // 已展开：差量更新。对展开中的节点做 Children.Clear() 全量重建，
-        // 会在 TreeView 虚拟化下触发 WinUI 内部访问冲突（#8275 家族）。
+        // 已展开：差量更新。
         RegistryView view = CurrentView;
         IReadOnlyList<RegistryKeyName>? fresh = await Task.Run(() =>
         {
             try
             {
-                return _service.GetSubKeyNames(parent.FullPath, view);
+                return _service.GetSubKeyNames(node.FullPath, view);
             }
             catch (IOException)
             {
@@ -604,39 +621,39 @@ public partial class MainViewModel : ObservableObject
         }
 
         var byTitle = new Dictionary<string, RegistryKeyNode>(StringComparer.OrdinalIgnoreCase);
-        for (int i = parent.Children.Count - 1; i >= 0; i--)
+        for (int i = node.Children.Count - 1; i >= 0; i--)
         {
-            byTitle[parent.Children[i].Title] = parent.Children[i];
+            byTitle[node.Children[i].Title] = node.Children[i];
         }
 
         var freshTitles = fresh.Select(k => k.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        for (int i = parent.Children.Count - 1; i >= 0; i--)
+        for (int i = node.Children.Count - 1; i >= 0; i--)
         {
-            if (!freshTitles.Contains(parent.Children[i].Title))
+            if (!freshTitles.Contains(node.Children[i].Title))
             {
-                parent.Children.RemoveAt(i);
+                node.Children.RemoveAt(i);
             }
         }
 
         int cursor = 0;
         foreach (RegistryKeyName key in fresh)
         {
-            if (!byTitle.TryGetValue(key.Name, out RegistryKeyNode? node))
+            if (!byTitle.TryGetValue(key.Name, out RegistryKeyNode? child))
             {
-                node = new RegistryKeyNode(key.Name, key.FullPath);
+                child = new RegistryKeyNode(key.Name, key.FullPath);
             }
 
-            if (cursor < parent.Children.Count)
+            if (cursor < node.Children.Count)
             {
-                if (!string.Equals(parent.Children[cursor].Title, key.Name, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(node.Children[cursor].Title, key.Name, StringComparison.OrdinalIgnoreCase))
                 {
-                    parent.Children.Remove(node);
-                    parent.Children.Insert(cursor, node);
+                    node.Children.Remove(child);
+                    node.Children.Insert(cursor, child);
                 }
             }
             else
             {
-                parent.Children.Insert(cursor, node);
+                node.Children.Insert(cursor, child);
             }
 
             cursor++;

@@ -14,6 +14,9 @@
             <KeyboardAccelerator Modifiers="Control" Key="Z" Invoked="OnUndoAccelerator" />
             <KeyboardAccelerator Modifiers="Control" Key="Y" Invoked="OnRedoAccelerator" />
             <KeyboardAccelerator Modifiers="Control" Key="K" Invoked="OnPaletteAccelerator" />
+            <KeyboardAccelerator Modifiers="Control" Key="F" Invoked="OnFindAccelerator" />
+            <KeyboardAccelerator Modifiers="Control" Key="L" Invoked="OnAddressAccelerator" />
+            <KeyboardAccelerator Key="F5" Invoked="OnRefreshAccelerator" />
             <KeyboardAccelerator Key="F6" Invoked="OnF6Accelerator" />
         </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
@@ -215,7 +218,8 @@
             ItemsSource="{x:Bind ViewModel.Roots}"
             Expanding="OnExpanding"
             RightTapped="OnTreeRightTapped"
-            SelectionChanged="OnSelectionChanged">
+            SelectionChanged="OnSelectionChanged"
+            KeyDown="OnTreeKeyDown">
             <TreeView.ItemTemplate>
                 <DataTemplate x:DataType="vm:RegistryKeyNode">
                     <TreeViewItem
@@ -299,7 +303,8 @@
                     SelectedItem="{x:Bind ViewModel.SelectedValueRow, Mode=TwoWay}"
                     SelectionMode="Single"
                     DoubleTapped="OnValuesDoubleTapped"
-                    RightTapped="OnValuesRightTapped">
+                    RightTapped="OnValuesRightTapped"
+                    KeyDown="OnValuesKeyDown">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="MinHeight" Value="32" />

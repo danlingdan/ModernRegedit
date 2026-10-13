@@ -127,20 +127,28 @@ public sealed partial class MainWindow : Window
 
     private async void OnAddressKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key is not VirtualKey.Enter)
+        if (e.Key is VirtualKey.Enter)
         {
-            return;
-        }
-
-        e.Handled = true;
-        await RunOnUiThreadAsync(async () =>
-        {
-            RegistryKeyNode? node = await ViewModel.NavigateToAsync(AddressBar.Text);
-            if (node is not null)
+            e.Handled = true;
+            await RunOnUiThreadAsync(async () =>
             {
-                SelectTreeNode(node, recordHistory: true);
+                RegistryKeyNode? node = await ViewModel.NavigateToAsync(AddressBar.Text);
+                if (node is not null)
+                {
+                    SelectTreeNode(node, recordHistory: true);
+                }
+            });
+        }
+        else if (e.Key is VirtualKey.Escape)
+        {
+            // 还原为当前选中键路径。
+            string current = ViewModel.SelectedNode?.FullPath ?? string.Empty;
+            if (AddressBar.Text != current)
+            {
+                e.Handled = true;
+                AddressBar.Text = current;
             }
-        });
+        }
     }
 
     private async void OnBackClick(object sender, RoutedEventArgs e)
@@ -281,6 +289,20 @@ public sealed partial class MainWindow : Window
         {
             e.Handled = true;
             await RunOnUiThreadAsync(async () => await ViewModel.SearchNowAsync());
+        }
+        else if (e.Key is VirtualKey.Escape)
+        {
+            // 有词清词（联动关闭面板），无词仅收起面板。
+            if (ViewModel.SearchText.Length > 0)
+            {
+                e.Handled = true;
+                ViewModel.SearchText = string.Empty;
+            }
+            else if (ViewModel.SearchPanelVisibility == Visibility.Visible)
+            {
+                e.Handled = true;
+                ViewModel.CloseSearchPanel();
+            }
         }
     }
 
@@ -441,6 +463,74 @@ public sealed partial class MainWindow : Window
             : KeyTree;
         args.Handled = true;
         target.Focus(FocusState.Programmatic);
+    }
+
+    private void OnRefreshAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        _ = RunOnUiThreadAsync(async () => await ViewModel.RefreshCurrentAsync());
+    }
+
+    private void OnFindAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        SearchBox.Focus(FocusState.Programmatic);
+        SearchBox.SelectAll();
+    }
+
+    private void OnAddressAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        AddressBar.Focus(FocusState.Programmatic);
+        AddressBar.SelectAll();
+    }
+
+    /// <summary>键树键盘操作与 regedit 对齐：Delete 删键，F2 改名。</summary>
+    private async void OnTreeKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        RegistryKeyNode? node = ViewModel.SelectedNode;
+        if (node is null || !node.FullPath.Contains('\\'))
+        {
+            return; // 根键不可删改
+        }
+
+        switch (e.Key)
+        {
+            case VirtualKey.Delete:
+                e.Handled = true;
+                await RunOnUiThreadAsync(async () => await DeleteKeyAsync(node));
+                break;
+            case VirtualKey.F2:
+                e.Handled = true;
+                await RunOnUiThreadAsync(async () => await RenameKeyAsync(node));
+                break;
+        }
+    }
+
+    /// <summary>值列表键盘操作：Enter/F2 编辑，Delete 删除。</summary>
+    private async void OnValuesKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        RegistryValueRow? row = ViewModel.SelectedValueRow;
+        if (row is null)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case VirtualKey.Enter:
+            case VirtualKey.F2:
+                e.Handled = true;
+                await RunOnUiThreadAsync(async () => await EditValueAsync(row));
+                break;
+            case VirtualKey.Delete:
+                if (!row.IsUnset)
+                {
+                    e.Handled = true;
+                    await RunOnUiThreadAsync(async () => await DeleteValueAsync(row));
+                }
+                break;
+        }
     }
 
     private async Task ShowCommandPaletteAsync()
@@ -855,6 +945,11 @@ public sealed partial class MainWindow : Window
         {
             e.Handled = true;
             JumpToResult(ResultsList.SelectedItem as SearchResultRow);
+        }
+        else if (e.Key is VirtualKey.Escape)
+        {
+            e.Handled = true;
+            ViewModel.CloseSearchPanel();
         }
     }
 
