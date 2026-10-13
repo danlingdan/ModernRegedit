@@ -59,5 +59,5 @@ dotnet build src/ModernRegedit/ModernRegedit.csproj -c Debug -p:Platform=x64
 
 ## 当前状态与里程碑纪律
 
-- 当前：M3 完成（2026-10-13），下一里程碑见 PLAN.md §5。
+- 当前：M4 完成（2026-10-13），下一里程碑见 PLAN.md §5。
 - 里程碑完成时必须：PLAN.md 表格打勾 + CHANGELOG.md 追加条目 + push 后确认 CI 绿（`gh run watch`）。

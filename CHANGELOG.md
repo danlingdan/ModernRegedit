@@ -21,6 +21,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Writes route through a UAC-elevated secondary instance (AppExecutionAlias + runas) so changes reach the real registry; unelevated and CLI (`--apply`) runs write directly (M3)
 - .reg export of a subtree in Registry Editor 5.00 format (UTF-16LE BOM, dword/hex/hex(2)/hex(7)/hex(b) encodings) to Downloads (M3)
 - .reg import with a diff preview (added / modified / deleted counts and rows) before applying (M3)
+- Automatic pre-write backups of affected subtrees to `%LOCALAPPDATA%\ModernRegedit\backups` (200-file retention); a failed backup aborts the write (M4)
+- Undo / redo for all registry writes (50 levels, subtree snapshots, Ctrl+Z / Ctrl+Y and toolbar buttons) (M4)
+- Tiered high-risk key warnings (startup-critical / sensitive) on deletes and in the import preview (M4)
+- Favorites with jump-to-key, persisted to `settings.json` (M4)
+- Last-location memory: reopens the key and view from the previous session (M4)
 
 ### Fixed
 
