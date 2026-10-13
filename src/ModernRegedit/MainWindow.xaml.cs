@@ -54,7 +54,12 @@ public sealed partial class MainWindow : Window
         ElementTheme.Dark,
     ];
 
-    private static readonly string[] ThemeLabels = ["System", "Light", "Dark"];
+    private static string ThemeLabel(int index) => index switch
+    {
+        1 => MainViewModel.Localize("Theme_Light"),
+        2 => MainViewModel.Localize("Theme_Dark"),
+        _ => MainViewModel.Localize("Theme_System"),
+    };
 
     private bool _suppressSelectionEvents;
 
@@ -165,7 +170,7 @@ public sealed partial class MainWindow : Window
         {
             _themeIndex = ViewModel.ThemeSetting;
             RootGrid.RequestedTheme = ThemeCycle[_themeIndex];
-            ThemeButton.Label = ThemeLabels[_themeIndex];
+            ThemeButton.Label = ThemeLabel(_themeIndex);
         }
 
         // 恢复 32 位视图时同步开关；事件触发 SetViewAsync 会因视图相同而空转，无副作用。
@@ -287,7 +292,7 @@ public sealed partial class MainWindow : Window
     {
         _themeIndex = (_themeIndex + 1) % ThemeCycle.Length;
         RootGrid.RequestedTheme = ThemeCycle[_themeIndex];
-        ThemeButton.Label = ThemeLabels[_themeIndex];
+        ThemeButton.Label = ThemeLabel(_themeIndex);
         ViewModel.UpdateSettings(_themeIndex, ViewModel.BackupRetentionSetting);
     }
 
@@ -295,17 +300,17 @@ public sealed partial class MainWindow : Window
     {
         var retention = new NumberBox
         {
-            Header = "Backup retention (files)",
+            Header = MainViewModel.Localize("Settings_BackupRetention"),
             Value = ViewModel.BackupRetentionSetting,
             Minimum = 10,
             Maximum = 1000,
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
         };
 
-        var themeList = new ComboBox { Header = "Theme", Width = 200 };
-        foreach (string label in ThemeLabels)
+        var themeList = new ComboBox { Header = MainViewModel.Localize("Settings_Theme"), Width = 200 };
+        for (int i = 0; i < 3; i++)
         {
-            themeList.Items.Add(new ComboBoxItem { Content = label });
+            themeList.Items.Add(new ComboBoxItem { Content = ThemeLabel(i) });
         }
         themeList.SelectedIndex = ViewModel.ThemeSetting;
 
@@ -317,10 +322,10 @@ public sealed partial class MainWindow : Window
         var dialog = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,
-            Title = "Settings",
+            Title = MainViewModel.Localize("Settings_Title"),
             Content = panel,
-            PrimaryButtonText = "Save",
-            CloseButtonText = "Cancel",
+            PrimaryButtonText = MainViewModel.Localize("Dialog_Save"),
+            CloseButtonText = MainViewModel.Localize("Dialog_Cancel"),
             DefaultButton = ContentDialogButton.Primary,
         };
 
@@ -328,7 +333,7 @@ public sealed partial class MainWindow : Window
         {
             _themeIndex = themeList.SelectedIndex;
             RootGrid.RequestedTheme = ThemeCycle[_themeIndex];
-            ThemeButton.Label = ThemeLabels[_themeIndex];
+            ThemeButton.Label = ThemeLabel(_themeIndex);
             ViewModel.UpdateSettings(_themeIndex, (int)retention.Value);
             Services.RegistryWriteService.BackupRetentionOverride = (int)retention.Value;
         }
@@ -343,24 +348,24 @@ public sealed partial class MainWindow : Window
         var about = new StackPanel { Spacing = 4 };
         about.Children.Add(new TextBlock
         {
-            Text = $"ModernRegedit {version} — MIT License",
+            Text = MainViewModel.Localize("About_VersionLine", version),
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
         });
         about.Children.Add(new TextBlock
         {
-            Text = "A modern registry editor for Windows. Provided as-is, without warranty.",
+            Text = MainViewModel.Localize("About_Description"),
             TextWrapping = TextWrapping.Wrap,
             Foreground = (Microsoft.UI.Xaml.Media.SolidColorBrush)Application.Current.Resources["TextFillColorSecondaryBrush"],
         });
         about.Children.Add(new HyperlinkButton
         {
-            Content = "GitHub repository",
+            Content = MainViewModel.Localize("About_RepoLink"),
             NavigateUri = new Uri("https://github.com/danlingdan/ModernRegedit"),
         });
 
         var backups = new HyperlinkButton
         {
-            Content = "Open backups folder",
+            Content = MainViewModel.Localize("About_BackupsLink"),
         };
         backups.Click += async (_, _) =>
         {
@@ -378,7 +383,7 @@ public sealed partial class MainWindow : Window
             Margin = new Thickness(0, 8, 0, 0),
             Children =
             {
-                new TextBlock { Text = "About", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
+                new TextBlock { Text = MainViewModel.Localize("About_Header"), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
                 about,
             },
         };
@@ -392,7 +397,7 @@ public sealed partial class MainWindow : Window
             bool isFav = ViewModel.IsFavorite(ViewModel.SelectedNode.FullPath);
             var toggle = new MenuFlyoutItem
             {
-                Text = isFav ? "Remove from favorites" : "Add current to favorites",
+                Text = isFav ? MainViewModel.Localize("Favorites_RemoveCurrent") : MainViewModel.Localize("Favorites_AddCurrent"),
             };
             toggle.Click += (_, _) => ViewModel.ToggleFavorite(ViewModel.SelectedNode.FullPath);
             menu.Items.Add(toggle);
@@ -419,7 +424,7 @@ public sealed partial class MainWindow : Window
 
         if (ViewModel.Favorites.Count == 0)
         {
-            menu.Items.Add(new MenuFlyoutItem { Text = "(no favorites yet)", IsEnabled = false });
+            menu.Items.Add(new MenuFlyoutItem { Text = MainViewModel.Localize("Favorites_Empty"), IsEnabled = false });
         }
 
         menu.ShowAt(FavoritesButton, new Windows.Foundation.Point(0, FavoritesButton.ActualHeight));
@@ -470,28 +475,28 @@ public sealed partial class MainWindow : Window
 
         if (row is not null && !row.IsUnset)
         {
-            var modify = new MenuFlyoutItem { Text = "Modify…" };
+            var modify = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_Modify") };
             modify.Click += async (_, _) => await RunOnUiThreadAsync(async () => await EditValueAsync(row));
             menu.Items.Add(modify);
 
-            var delete = new MenuFlyoutItem { Text = "Delete" };
+            var delete = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_Delete") };
             delete.Click += async (_, _) => await RunOnUiThreadAsync(async () => await DeleteValueAsync(row));
             menu.Items.Add(delete);
 
             menu.Items.Add(new MenuFlyoutSeparator());
 
-            var copyName = new MenuFlyoutItem { Text = "Copy name" };
+            var copyName = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_CopyName") };
             copyName.Click += (_, _) => CopyText(row.Name);
             menu.Items.Add(copyName);
 
-            var copyData = new MenuFlyoutItem { Text = "Copy data" };
+            var copyData = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_CopyData") };
             copyData.Click += (_, _) => CopyText(row.DataDisplay);
             menu.Items.Add(copyData);
 
             menu.Items.Add(new MenuFlyoutSeparator());
         }
 
-        var newValue = new MenuFlyoutItem { Text = "New Value…" };
+        var newValue = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_NewValue") };
         newValue.Click += async (_, _) => await RunOnUiThreadAsync(async () => await NewValueAsync());
         menu.Items.Add(newValue);
 
@@ -519,7 +524,7 @@ public sealed partial class MainWindow : Window
 
         args.Handled = true;
         CopyText(row.DataDisplay);
-        ViewModel.SetStatusMessage($"Copied data of '{row.Name}'.");
+        ViewModel.SetStatusMessage(MainViewModel.Localize("Status_CopiedData", row.Name));
     }
 
     private void OnCopyKeyPathAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
@@ -531,7 +536,7 @@ public sealed partial class MainWindow : Window
 
         args.Handled = true;
         CopyText(node.FullPath);
-        ViewModel.SetStatusMessage($"Copied '{node.FullPath}'.");
+        ViewModel.SetStatusMessage(MainViewModel.Localize("Status_CopiedPath", node.FullPath));
     }
 
     private async Task EditValueAsync(RegistryValueRow? row)
@@ -541,7 +546,9 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        string title = row.IsUnset ? "Set the (Default) value" : $"Edit value '{row.Name}'";
+        string title = row.IsUnset
+            ? MainViewModel.Localize("EditDefault_Title")
+            : MainViewModel.Localize("EditValue_Title", row.Name);
         byte[] initial = row.IsUnset ? Array.Empty<byte>() : row.Data;
         var edited = await ValueDialogs.ShowAsync(
             Content.XamlRoot, title, row.ValueName, row.Kind, initial, allowPickType: false);
@@ -561,7 +568,7 @@ public sealed partial class MainWindow : Window
             ]);
             if (ok)
             {
-                ViewModel.SetStatusMessage($"Renamed '{row.Name}' to '{edited.Value.Name}'.");
+                ViewModel.SetStatusMessage(MainViewModel.Localize("Status_Renamed", row.Name, edited.Value.Name));
             }
 
             return;
@@ -581,7 +588,7 @@ public sealed partial class MainWindow : Window
         }
 
         var created = await ValueDialogs.ShowAsync(
-            Content.XamlRoot, $"New value under '{ViewModel.SelectedNode.FullPath}'", "New Value", RegKind.Sz, Array.Empty<byte>(), allowPickType: true);
+            Content.XamlRoot, MainViewModel.Localize("NewValue_Title", ViewModel.SelectedNode.FullPath), "New Value", RegKind.Sz, Array.Empty<byte>(), allowPickType: true);
         if (created is null)
         {
             return;
@@ -601,8 +608,9 @@ public sealed partial class MainWindow : Window
         }
 
         bool confirmed = await ConfirmHighRiskAsync(
-            Content.XamlRoot, "Delete value", ViewModel.SelectedNode.FullPath,
-            $"Delete value '{row.Name}' from '{ViewModel.SelectedNode.FullPath}'?", "Delete");
+            Content.XamlRoot, MainViewModel.Localize("DeleteValue_Title"), ViewModel.SelectedNode.FullPath,
+            MainViewModel.Localize("DeleteValue_Message", row.Name, ViewModel.SelectedNode.FullPath),
+            MainViewModel.Localize("Dialog_Delete"));
         if (!confirmed)
         {
             return;
@@ -742,12 +750,12 @@ public sealed partial class MainWindow : Window
     {
         var commands = new List<UI.CommandPalette.Command>
         {
-            new("Undo", async () => await ViewModel.UndoAsync()),
-            new("Redo", async () => await ViewModel.RedoAsync()),
-            new("Export current key…", async () => await ExportAsync(ViewModel.SelectedNode)),
-            new("Import .reg file…", async () => await ImportAsync()),
-            new("Toggle 32-bit view", async () => await ViewModel.SetViewAsync(!ViewModel.Is32BitView)),
-            new("Cycle theme", () => { OnThemeClick(this, new RoutedEventArgs()); return Task.CompletedTask; }),
+            new(MainViewModel.Localize("Cmd_Undo"), async () => await ViewModel.UndoAsync()),
+            new(MainViewModel.Localize("Cmd_Redo"), async () => await ViewModel.RedoAsync()),
+            new(MainViewModel.Localize("Cmd_ExportCurrent"), async () => await ExportAsync(ViewModel.SelectedNode)),
+            new(MainViewModel.Localize("Cmd_Import"), async () => await ImportAsync()),
+            new(MainViewModel.Localize("Cmd_Toggle32Bit"), async () => await ViewModel.SetViewAsync(!ViewModel.Is32BitView)),
+            new(MainViewModel.Localize("Cmd_CycleTheme"), () => { OnThemeClick(this, new RoutedEventArgs()); return Task.CompletedTask; }),
         };
 
         UI.CommandPalette.PaletteResult result = await UI.CommandPalette.ShowAsync(
@@ -805,7 +813,7 @@ public sealed partial class MainWindow : Window
             Title = title,
             Content = message,
             PrimaryButtonText = action,
-            CloseButtonText = "Cancel",
+            CloseButtonText = MainViewModel.Localize("Dialog_Cancel"),
             DefaultButton = ContentDialogButton.Primary,
         };
 
@@ -825,8 +833,8 @@ public sealed partial class MainWindow : Window
         var levelText = new TextBlock
         {
             Text = area.Level == RiskLevel.Critical
-                ? "⚠ STARTUP-CRITICAL AREA"
-                : "⚠ SENSITIVE AREA",
+                ? MainViewModel.Localize("Risk_Critical")
+                : MainViewModel.Localize("Risk_Elevated"),
             Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(
                 area.Level == RiskLevel.Critical ? Microsoft.UI.Colors.OrangeRed : Microsoft.UI.Colors.Goldenrod),
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
@@ -834,7 +842,7 @@ public sealed partial class MainWindow : Window
         };
         var reason = new TextBlock
         {
-            Text = area.Reason,
+            Text = MainViewModel.Localize("Risk_Reason_" + area.Key),
             TextWrapping = TextWrapping.Wrap,
             Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
             Margin = new Thickness(0, 0, 0, 8),
@@ -852,7 +860,7 @@ public sealed partial class MainWindow : Window
             Title = title,
             Content = panel,
             PrimaryButtonText = action,
-            CloseButtonText = "Cancel",
+            CloseButtonText = MainViewModel.Localize("Dialog_Cancel"),
             DefaultButton = ContentDialogButton.Close,
         };
 
@@ -869,8 +877,8 @@ public sealed partial class MainWindow : Window
             XamlRoot = root,
             Title = title,
             Content = box,
-            PrimaryButtonText = "OK",
-            CloseButtonText = "Cancel",
+            PrimaryButtonText = MainViewModel.Localize("Dialog_OK"),
+            CloseButtonText = MainViewModel.Localize("Dialog_Cancel"),
             DefaultButton = ContentDialogButton.Primary,
         };
 
@@ -910,19 +918,19 @@ public sealed partial class MainWindow : Window
         // 根键与树空白区不可新建（与 regedit 一致）。
         if (node is not null && node.FullPath.Contains('\\'))
         {
-            var newKey = new MenuFlyoutItem { Text = "New Key…" };
+            var newKey = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_NewKey") };
             newKey.Click += async (_, _) => await RunOnUiThreadAsync(async () => await NewKeyAsync(node));
             menu.Items.Add(newKey);
 
-            var newValue = new MenuFlyoutItem { Text = "New Value…" };
+            var newValue = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_NewValue") };
             newValue.Click += async (_, _) => await RunOnUiThreadAsync(async () => await NewValueUnderAsync(node));
             menu.Items.Add(newValue);
 
-            var rename = new MenuFlyoutItem { Text = "Rename…" };
+            var rename = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_Rename") };
             rename.Click += async (_, _) => await RunOnUiThreadAsync(async () => await RenameKeyAsync(node));
             menu.Items.Add(rename);
 
-            var delete = new MenuFlyoutItem { Text = "Delete" };
+            var delete = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_Delete") };
             delete.Click += async (_, _) => await RunOnUiThreadAsync(async () => await DeleteKeyAsync(node));
             menu.Items.Add(delete);
 
@@ -931,16 +939,16 @@ public sealed partial class MainWindow : Window
 
         if (node is not null)
         {
-            var copyPath = new MenuFlyoutItem { Text = "Copy path" };
+            var copyPath = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_CopyPath") };
             copyPath.Click += (_, _) => CopyText(node.FullPath);
             menu.Items.Add(copyPath);
 
-            var export = new MenuFlyoutItem { Text = "Export…" };
+            var export = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_Export") };
             export.Click += async (_, _) => await RunOnUiThreadAsync(async () => await ExportAsync(node));
             menu.Items.Add(export);
         }
 
-        var import = new MenuFlyoutItem { Text = "Import .reg…" };
+        var import = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_Import") };
         import.Click += async (_, _) => await RunOnUiThreadAsync(async () => await ImportAsync());
         menu.Items.Add(import);
 
@@ -951,8 +959,8 @@ public sealed partial class MainWindow : Window
     {
         string? name = await PromptTextAsync(
             Content.XamlRoot,
-            parent is null ? "New key under registry root" : $"New key under '{parent.FullPath}'",
-            "Key name",
+            parent is null ? MainViewModel.Localize("NewKey_Title_Root") : MainViewModel.Localize("NewKey_Title", parent.FullPath),
+            MainViewModel.Localize("Prompt_KeyName"),
             "New Key");
         if (string.IsNullOrEmpty(name))
         {
@@ -974,7 +982,7 @@ public sealed partial class MainWindow : Window
         }
 
         var created = await ValueDialogs.ShowAsync(
-            Content.XamlRoot, $"New value under '{node.FullPath}'", "New Value", RegKind.Sz, Array.Empty<byte>(), allowPickType: true);
+            Content.XamlRoot, MainViewModel.Localize("NewValue_Title", node.FullPath), "New Value", RegKind.Sz, Array.Empty<byte>(), allowPickType: true);
         if (created is null)
         {
             return;
@@ -988,7 +996,8 @@ public sealed partial class MainWindow : Window
 
     private async Task RenameKeyAsync(RegistryKeyNode node)
     {
-        string? newName = await PromptTextAsync(Content.XamlRoot, $"Rename '{node.Title}'", "New name", node.Title);
+        string? newName = await PromptTextAsync(
+            Content.XamlRoot, MainViewModel.Localize("Rename_Title", node.Title), MainViewModel.Localize("Prompt_NewName"), node.Title);
         if (string.IsNullOrEmpty(newName) || string.Equals(newName, node.Title, StringComparison.Ordinal))
         {
             return;
@@ -1005,10 +1014,10 @@ public sealed partial class MainWindow : Window
     {
         bool confirmed = await ConfirmHighRiskAsync(
             Content.XamlRoot,
-            "Delete key",
+            MainViewModel.Localize("DeleteKey_Title"),
             node.FullPath,
-            $"'{node.FullPath}' and everything under it will be deleted. Continue?",
-            "Delete");
+            MainViewModel.Localize("DeleteKey_Message", node.FullPath),
+            MainViewModel.Localize("Dialog_Delete"));
         if (!confirmed)
         {
             return;
@@ -1034,7 +1043,7 @@ public sealed partial class MainWindow : Window
     {
         if (node is null)
         {
-            ViewModel.SetStatusMessage("Export: no node under cursor.");
+            ViewModel.SetStatusMessage(MainViewModel.Localize("Status_Export_NoNode"));
             return;
         }
 
@@ -1049,13 +1058,13 @@ public sealed partial class MainWindow : Window
         }
 
         await RegFile.ExportAsync(new RegistryService(), node.FullPath, ViewModel.CurrentView, path);
-        ViewModel.SetStatusMessage($"Exported '{node.FullPath}' to {path}");
+        ViewModel.SetStatusMessage(MainViewModel.Localize("Status_Exported", node.FullPath, path));
     }
 
     private async Task ImportAsync()
     {
         string? path = await PromptTextAsync(
-            Content.XamlRoot, "Import a .reg file", "Full path to the .reg file", string.Empty, rejectBackslash: false);
+            Content.XamlRoot, MainViewModel.Localize("Import_Title"), MainViewModel.Localize("Import_PathHeader"), string.Empty, rejectBackslash: false);
         if (string.IsNullOrEmpty(path))
         {
             return;
@@ -1090,7 +1099,7 @@ public sealed partial class MainWindow : Window
                 .FirstOrDefault(f => f.Name.EndsWith(".reg", StringComparison.OrdinalIgnoreCase))?.Path;
             if (path is null)
             {
-                ViewModel.SetStatusMessage("Drop a .reg file to import.");
+                ViewModel.SetStatusMessage(MainViewModel.Localize("Drop_Hint"));
                 return;
             }
 
@@ -1106,7 +1115,7 @@ public sealed partial class MainWindow : Window
     {
         if (!File.Exists(path))
         {
-            ViewModel.SetError($"Import: file not found: {path}");
+            ViewModel.SetError(MainViewModel.Localize("Import_FileNotFound", path));
             return;
         }
 
@@ -1118,14 +1127,14 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            ViewModel.SetError($"Cannot parse '{path}': {ex.Message}");
+            ViewModel.SetError(MainViewModel.Localize("Import_ParseFailed", path, ex.Message));
             return;
         }
 
         RegFile.ImportPlan plan = RegFile.BuildImportPlan(service, parsed, ViewModel.CurrentView);
         if (plan.Operations.Count == 0)
         {
-            ViewModel.SetStatusMessage($"'{path}': no changes against the current registry.");
+            ViewModel.SetStatusMessage(MainViewModel.Localize("Import_NoChanges", path));
             return;
         }
 
@@ -1137,7 +1146,7 @@ public sealed partial class MainWindow : Window
 
         if (await ViewModel.ApplyWritesAsync(plan.Operations, refreshPerPath: false))
         {
-            ViewModel.SetStatusMessage($"Imported {plan.Operations.Count} changes from '{path}' ({plan.Added} added, {plan.Modified} modified, {plan.Deleted} deleted).");
+            ViewModel.SetStatusMessage(MainViewModel.Localize("Import_Applied", plan.Operations.Count, path, plan.Added, plan.Modified, plan.Deleted));
         }
     }
 
@@ -1145,12 +1154,12 @@ public sealed partial class MainWindow : Window
     {
         int riskHits = plan.Operations.Count(op => HighRiskKeys.Match(op.KeyPath) is not null);
         string riskNote = riskHits > 0
-            ? $" ⚠ {riskHits} operations target high-risk areas (startup-critical or autostart)."
+            ? MainViewModel.Localize("Import_RiskNote", riskHits)
             : string.Empty;
         var summary = new TextBlock
         {
             Margin = new Thickness(0, 0, 0, 8),
-            Text = $"'{fileName}' proposes {plan.Rows.Count} changes: {plan.Added} added, {plan.Modified} modified, {plan.Deleted} deleted (keys and values).{riskNote}",
+            Text = MainViewModel.Localize("Import_Summary", fileName, plan.Rows.Count, plan.Added, plan.Modified, plan.Deleted) + riskNote,
             TextWrapping = TextWrapping.Wrap,
         };
 
@@ -1168,7 +1177,7 @@ public sealed partial class MainWindow : Window
 
         if (plan.Rows.Count > 300)
         {
-            list.Items.Add($"… and {plan.Rows.Count - 300} more");
+            list.Items.Add(MainViewModel.Localize("Import_MoreRows", plan.Rows.Count - 300));
         }
 
         var panel = new StackPanel { Spacing = 8 };
@@ -1178,10 +1187,10 @@ public sealed partial class MainWindow : Window
         var dialog = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,
-            Title = "Import preview",
+            Title = MainViewModel.Localize("Import_PreviewTitle"),
             Content = panel,
-            PrimaryButtonText = "Apply",
-            CloseButtonText = "Cancel",
+            PrimaryButtonText = MainViewModel.Localize("Dialog_Apply"),
+            CloseButtonText = MainViewModel.Localize("Dialog_Cancel"),
             DefaultButton = ContentDialogButton.Close,
         };
 

@@ -153,9 +153,9 @@
                 <AppBarButton.Flyout>
                     <Flyout Placement="Bottom">
                         <StackPanel Spacing="8" Margin="4">
-                            <CheckBox Content="Key names" IsChecked="{x:Bind ViewModel.MatchKeyNames, Mode=TwoWay}" />
-                            <CheckBox Content="Value names" IsChecked="{x:Bind ViewModel.MatchValueNames, Mode=TwoWay}" />
-                            <CheckBox Content="Value data" IsChecked="{x:Bind ViewModel.MatchValueData, Mode=TwoWay}" />
+                            <CheckBox x:Uid="Scope_KeyNames" IsChecked="{x:Bind ViewModel.MatchKeyNames, Mode=TwoWay}" />
+                            <CheckBox x:Uid="Scope_ValueNames" IsChecked="{x:Bind ViewModel.MatchValueNames, Mode=TwoWay}" />
+                            <CheckBox x:Uid="Scope_ValueData" IsChecked="{x:Bind ViewModel.MatchValueData, Mode=TwoWay}" />
                         </StackPanel>
                     </Flyout>
                 </AppBarButton.Flyout>
@@ -185,7 +185,6 @@
                 x:Name="ThemeButton"
                 Grid.Column="11"
                 AutomationProperties.AutomationId="ThemeButton"
-                Label="System"
                 IsCompact="True"
                 Click="OnThemeClick">
                 <AppBarButton.Icon>
@@ -199,7 +198,6 @@
                 x:Name="FavoritesButton"
                 AutomationProperties.AutomationId="FavoritesButton"
                 Icon="Favorite"
-                Label="Favorites"
                 IsCompact="True"
                 Click="OnFavoritesClick" />
 
@@ -208,7 +206,6 @@
                 Grid.Column="13"
                 AutomationProperties.AutomationId="SettingsButton"
                 Icon="Setting"
-                Label="Settings"
                 IsCompact="True"
                 Click="OnSettingsClick" />
         </Grid>
@@ -288,16 +285,16 @@
                 </Grid.ColumnDefinitions>
 
                 <TextBlock
+                    x:Uid="Header_Name"
                     Grid.Column="0"
-                    Text="Name"
                     FontWeight="SemiBold" />
                 <TextBlock
+                    x:Uid="Header_Type"
                     Grid.Column="1"
-                    Text="Type"
                     FontWeight="SemiBold" />
                 <TextBlock
+                    x:Uid="Header_Data"
                     Grid.Column="2"
-                    Text="Data"
                     FontWeight="SemiBold" />
             </Grid>
 
@@ -405,20 +402,18 @@
                         TextTrimming="CharacterEllipsis" />
 
                     <AppBarButton
+                        x:Uid="SearchPanel_Cancel"
                         Grid.Column="1"
                         Icon="Cancel"
-                        Label="Cancel"
                         IsCompact="True"
-                        ToolTipService.ToolTip="Cancel search (results so far are kept)"
                         Visibility="{x:Bind ViewModel.CancelButtonVisibility, Mode=OneWay}"
                         Click="OnCancelSearch" />
 
                     <AppBarButton
+                        x:Uid="SearchPanel_Close"
                         Grid.Column="2"
                         Icon="Clear"
-                        Label="Close"
                         IsCompact="True"
-                        ToolTipService.ToolTip="Close search results"
                         Visibility="{x:Bind ViewModel.CloseButtonVisibility, Mode=OneWay}"
                         Click="OnCloseSearch" />
                 </Grid>

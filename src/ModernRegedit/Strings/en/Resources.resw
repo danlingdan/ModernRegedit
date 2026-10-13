@@ -18,20 +18,152 @@
   <data name="Toolbar_Up.ToolTipService.ToolTip" xml:space="preserve"><value>Up one level (Alt+Up)</value></data>
   <data name="Toolbar_32Bit.Label" xml:space="preserve"><value>32-bit</value></data>
   <data name="Toolbar_32Bit.ToolTipService.ToolTip" xml:space="preserve"><value>Show the 32-bit registry view</value></data>
+  <data name="Toolbar_Theme.Label" xml:space="preserve"><value>System</value></data>
   <data name="Toolbar_Theme.ToolTipService.ToolTip" xml:space="preserve"><value>Cycle system / light / dark theme</value></data>
+  <data name="Toolbar_Favorites.Label" xml:space="preserve"><value>Favorites</value></data>
   <data name="Toolbar_Favorites.ToolTipService.ToolTip" xml:space="preserve"><value>Favorite keys</value></data>
+  <data name="Toolbar_Settings.Label" xml:space="preserve"><value>Settings</value></data>
   <data name="Toolbar_Settings.ToolTipService.ToolTip" xml:space="preserve"><value>Settings</value></data>
-  <data name="AddressBar.PlaceholderText" xml:space="preserve"><value>Type a key path, e.g. HKLM\SOFTWARE\Microsoft</value></data>
   <data name="ScopeButton.Label" xml:space="preserve"><value>Scope</value></data>
   <data name="ScopeButton.ToolTipService.ToolTip" xml:space="preserve"><value>Choose where to match</value></data>
+  <data name="AddressBar.PlaceholderText" xml:space="preserve"><value>Type a key path, e.g. HKLM\SOFTWARE\Microsoft</value></data>
   <data name="SearchBox.PlaceholderText" xml:space="preserve"><value>Search keys, values, data</value></data>
   <data name="Header_Name.Text" xml:space="preserve"><value>Name</value></data>
   <data name="Header_Type.Text" xml:space="preserve"><value>Type</value></data>
   <data name="Header_Data.Text" xml:space="preserve"><value>Data</value></data>
   <data name="Header_Path.Text" xml:space="preserve"><value>Path</value></data>
   <data name="Header_Value.Text" xml:space="preserve"><value>Value</value></data>
+  <data name="Header_Data2.Text" xml:space="preserve"><value>Data</value></data>
   <data name="Value_Default" xml:space="preserve"><value>(Default)</value></data>
   <data name="Value_NotSet" xml:space="preserve"><value>(value not set)</value></data>
   <data name="EmptyValues_Hint.Text" xml:space="preserve"><value>This key has no values. Right-click to create one.</value></data>
   <data name="Status_Ready" xml:space="preserve"><value>Ready</value></data>
+
+  <data name="Scope_KeyNames" xml:space="preserve"><value>Key names</value></data>
+  <data name="Scope_ValueNames" xml:space="preserve"><value>Value names</value></data>
+  <data name="Scope_ValueData" xml:space="preserve"><value>Value data</value></data>
+  <data name="SearchPanel_Cancel.Label" xml:space="preserve"><value>Cancel</value></data>
+  <data name="SearchPanel_Cancel.ToolTipService.ToolTip" xml:space="preserve"><value>Cancel search (results so far are kept)</value></data>
+  <data name="SearchPanel_Close.Label" xml:space="preserve"><value>Close</value></data>
+  <data name="SearchPanel_Close.ToolTipService.ToolTip" xml:space="preserve"><value>Close search results</value></data>
+
+  <data name="Theme_System" xml:space="preserve"><value>System</value></data>
+  <data name="Theme_Light" xml:space="preserve"><value>Light</value></data>
+  <data name="Theme_Dark" xml:space="preserve"><value>Dark</value></data>
+
+  <data name="Settings_Title" xml:space="preserve"><value>Settings</value></data>
+  <data name="Settings_Theme" xml:space="preserve"><value>Theme</value></data>
+  <data name="Settings_BackupRetention" xml:space="preserve"><value>Backup retention (files)</value></data>
+  <data name="Dialog_OK" xml:space="preserve"><value>OK</value></data>
+  <data name="Dialog_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Dialog_Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Dialog_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="Dialog_Apply" xml:space="preserve"><value>Apply</value></data>
+  <data name="Dialog_Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Dialog_Run" xml:space="preserve"><value>Run</value></data>
+
+  <data name="About_Header" xml:space="preserve"><value>About</value></data>
+  <data name="About_VersionLine" xml:space="preserve"><value>ModernRegedit {0} — MIT License</value></data>
+  <data name="About_Description" xml:space="preserve"><value>A modern registry editor for Windows. Provided as-is, without warranty.</value></data>
+  <data name="About_RepoLink" xml:space="preserve"><value>GitHub repository</value></data>
+  <data name="About_BackupsLink" xml:space="preserve"><value>Open backups folder</value></data>
+
+  <data name="Favorites_AddCurrent" xml:space="preserve"><value>Add current to favorites</value></data>
+  <data name="Favorites_RemoveCurrent" xml:space="preserve"><value>Remove from favorites</value></data>
+  <data name="Favorites_Empty" xml:space="preserve"><value>(no favorites yet)</value></data>
+
+  <data name="Menu_Modify" xml:space="preserve"><value>Modify…</value></data>
+  <data name="Menu_NewKey" xml:space="preserve"><value>New Key…</value></data>
+  <data name="Menu_NewValue" xml:space="preserve"><value>New Value…</value></data>
+  <data name="Menu_Rename" xml:space="preserve"><value>Rename…</value></data>
+  <data name="Menu_Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Menu_CopyName" xml:space="preserve"><value>Copy name</value></data>
+  <data name="Menu_CopyData" xml:space="preserve"><value>Copy data</value></data>
+  <data name="Menu_CopyPath" xml:space="preserve"><value>Copy path</value></data>
+  <data name="Menu_Export" xml:space="preserve"><value>Export…</value></data>
+  <data name="Menu_Import" xml:space="preserve"><value>Import .reg…</value></data>
+
+  <data name="Status_CopiedData" xml:space="preserve"><value>Copied data of '{0}'.</value></data>
+  <data name="Status_WriteFailed" xml:space="preserve"><value>Write failed: {0}</value></data>
+  <data name="Status_PathUnparsed" xml:space="preserve"><value>Cannot parse path '{0}'</value></data>
+  <data name="Status_PathNotFound" xml:space="preserve"><value>Path not found: {0}</value></data>
+  <data name="Status_CopiedPath" xml:space="preserve"><value>Copied '{0}'.</value></data>
+  <data name="Status_Renamed" xml:space="preserve"><value>Renamed '{0}' to '{1}'.</value></data>
+  <data name="Status_Export_NoNode" xml:space="preserve"><value>Export: no node under cursor.</value></data>
+  <data name="Status_Exported" xml:space="preserve"><value>Exported '{0}' to {1}</value></data>
+  <data name="Status_Loading" xml:space="preserve"><value>{0} — loading…</value></data>
+  <data name="Status_Selected" xml:space="preserve"><value>{0} — {1} subkeys, {2} values — {3}</value></data>
+  <data name="View_32" xml:space="preserve"><value>32-bit view</value></data>
+  <data name="View_64" xml:space="preserve"><value>64-bit view</value></data>
+
+  <data name="Status_ScopeRequired" xml:space="preserve"><value>Select at least one search scope</value></data>
+  <data name="Status_Searching" xml:space="preserve"><value>Searching…</value></data>
+  <data name="Status_Searching_Count" xml:space="preserve"><value>Searching… {0} results</value></data>
+  <data name="Status_Search_Capped" xml:space="preserve"><value>First {0} results — refine the query</value></data>
+  <data name="Status_Search_Capped_Elapsed" xml:space="preserve"><value>First {0} results ({1}s) — refine the query</value></data>
+  <data name="Status_Search_Cancelled" xml:space="preserve"><value>Cancelled — {0} results ({1}s)</value></data>
+  <data name="Status_Search_Done" xml:space="preserve"><value>{0} results ({1}s)</value></data>
+
+  <data name="EditValue_Title" xml:space="preserve"><value>Edit value '{0}'</value></data>
+  <data name="EditDefault_Title" xml:space="preserve"><value>Set the (Default) value</value></data>
+  <data name="NewValue_Title" xml:space="preserve"><value>New value under '{0}'</value></data>
+  <data name="NewKey_Title_Root" xml:space="preserve"><value>New key under registry root</value></data>
+  <data name="NewKey_Title" xml:space="preserve"><value>New key under '{0}'</value></data>
+  <data name="Prompt_KeyName" xml:space="preserve"><value>Key name</value></data>
+  <data name="Rename_Title" xml:space="preserve"><value>Rename '{0}'</value></data>
+  <data name="Prompt_NewName" xml:space="preserve"><value>New name</value></data>
+  <data name="DeleteKey_Title" xml:space="preserve"><value>Delete key</value></data>
+  <data name="DeleteKey_Message" xml:space="preserve"><value>'{0}' and everything under it will be deleted. Continue?</value></data>
+  <data name="DeleteValue_Title" xml:space="preserve"><value>Delete value</value></data>
+  <data name="DeleteValue_Message" xml:space="preserve"><value>Delete value '{0}' from '{1}'?</value></data>
+
+  <data name="Risk_Critical" xml:space="preserve"><value>⚠ STARTUP-CRITICAL AREA</value></data>
+  <data name="Risk_Elevated" xml:space="preserve"><value>⚠ SENSITIVE AREA</value></data>
+  <data name="Risk_Reason_Services" xml:space="preserve"><value>Services/drivers: mistakes can break boot (0x7B) or disable services.</value></data>
+  <data name="Risk_Reason_Select" xml:space="preserve"><value>Boot control-set selection. Direct changes can make the system unbootable.</value></data>
+  <data name="Risk_Reason_ControlSet001" xml:space="preserve"><value>Boot control set. Direct structural changes can make the system unbootable.</value></data>
+  <data name="Risk_Reason_ControlSet002" xml:space="preserve"><value>Boot control set. Direct structural changes can make the system unbootable.</value></data>
+  <data name="Risk_Reason_Winlogon" xml:space="preserve"><value>Winlogon: wrong Userinit/Shell values can prevent login.</value></data>
+  <data name="Risk_Reason_ProfileList" xml:space="preserve"><value>Profile paths: wrong values can break user logon.</value></data>
+  <data name="Risk_Reason_SessionManager" xml:space="preserve"><value>Session Manager: BootExecute / PendingFileRenameOperations affect boot.</value></data>
+  <data name="Risk_Reason_Run" xml:space="preserve"><value>Autostart entries (Run / RunOnce).</value></data>
+  <data name="Risk_Reason_RunOnce" xml:space="preserve"><value>Autostart entries (Run / RunOnce).</value></data>
+  <data name="Risk_Reason_IFEO" xml:space="preserve"><value>IFEO: a common malware hijack target.</value></data>
+  <data name="Risk_Reason_UserRun" xml:space="preserve"><value>User autostart entries (Run / RunOnce).</value></data>
+  <data name="Risk_Reason_UserRunOnce" xml:space="preserve"><value>User autostart entries (Run / RunOnce).</value></data>
+  <data name="Risk_Reason_TimeZone" xml:space="preserve"><value>Time zone data applies before logon.</value></data>
+
+  <data name="Import_Title" xml:space="preserve"><value>Import a .reg file</value></data>
+  <data name="Import_PathHeader" xml:space="preserve"><value>Full path to the .reg file</value></data>
+  <data name="Import_FileNotFound" xml:space="preserve"><value>Import: file not found: {0}</value></data>
+  <data name="Import_ParseFailed" xml:space="preserve"><value>Cannot parse '{0}': {1}</value></data>
+  <data name="Import_NoChanges" xml:space="preserve"><value>'{0}': no changes against the current registry.</value></data>
+  <data name="Import_Applied" xml:space="preserve"><value>Imported {0} changes from '{1}' ({2} added, {3} modified, {4} deleted).</value></data>
+  <data name="Import_PreviewTitle" xml:space="preserve"><value>Import preview</value></data>
+  <data name="Import_Summary" xml:space="preserve"><value>'{0}' proposes {1} changes: {2} added, {3} modified, {4} deleted (keys and values).</value></data>
+  <data name="Import_RiskNote" xml:space="preserve"><value> ⚠ {0} operations target high-risk areas (startup-critical or autostart).</value></data>
+  <data name="Import_MoreRows" xml:space="preserve"><value>… and {0} more</value></data>
+  <data name="Drop_Hint" xml:space="preserve"><value>Drop a .reg file to import.</value></data>
+
+  <data name="Palette_Title" xml:space="preserve"><value>Command palette (Ctrl+K)</value></data>
+  <data name="Palette_InputHeader" xml:space="preserve"><value>Type a command, or a key path (contains '\')</value></data>
+  <data name="Palette_Placeholder" xml:space="preserve"><value>e.g. undo  /  HKLM\SOFTWARE</value></data>
+  <data name="Palette_GoTo" xml:space="preserve"><value>Go to:  {0}</value></data>
+  <data name="Cmd_Undo" xml:space="preserve"><value>Undo</value></data>
+  <data name="Cmd_Redo" xml:space="preserve"><value>Redo</value></data>
+  <data name="Cmd_ExportCurrent" xml:space="preserve"><value>Export current key…</value></data>
+  <data name="Cmd_Import" xml:space="preserve"><value>Import .reg file…</value></data>
+  <data name="Cmd_Toggle32Bit" xml:space="preserve"><value>Toggle 32-bit view</value></data>
+  <data name="Cmd_CycleTheme" xml:space="preserve"><value>Cycle theme</value></data>
+
+  <data name="VD_NameHeader" xml:space="preserve"><value>Value name</value></data>
+  <data name="VD_TypeHeader" xml:space="preserve"><value>Type</value></data>
+  <data name="VD_StringHeader" xml:space="preserve"><value>String data</value></data>
+  <data name="VD_MultiHeader" xml:space="preserve"><value>Strings (one per line)</value></data>
+  <data name="VD_Hex" xml:space="preserve"><value>Hex</value></data>
+  <data name="VD_Decimal" xml:space="preserve"><value>Decimal</value></data>
+  <data name="VD_IntHeader" xml:space="preserve"><value>{0}-bit integer ({1})</value></data>
+  <data name="VD_HexBytesHeader" xml:space="preserve"><value>Hex bytes (any spacing)</value></data>
+  <data name="VD_NameRequired" xml:space="preserve"><value>Value name is required.</value></data>
+  <data name="VD_InvalidData" xml:space="preserve"><value>Invalid data for this type.</value></data>
 </root>

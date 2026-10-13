@@ -1,6 +1,8 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
+using ModernRegedit.ViewModels;
+
 namespace ModernRegedit.UI;
 
 /// <summary>Ctrl+K 命令面板：内置命令过滤 + 键路径直达。</summary>
@@ -10,31 +12,41 @@ public static class CommandPalette
 
     public sealed record PaletteResult(Command? Chosen, string? GoPath);
 
+    /// <summary>候选项：命令或跳转路径。按索引选中，避免依赖展示文案解析。</summary>
+    private sealed record Entry(string Display, Command? Cmd, string? Path);
+
     public static async Task<PaletteResult> ShowAsync(
         XamlRoot root, IReadOnlyList<Command> commands, Func<string, bool> canNavigate)
     {
         PaletteResult result = new(null, null);
         var input = new TextBox
         {
-            Header = "Type a command, or a key path (contains '\\')",
-            PlaceholderText = "e.g. undo  /  HKLM\\SOFTWARE",
+            Header = MainViewModel.Localize("Palette_InputHeader"),
+            PlaceholderText = MainViewModel.Localize("Palette_Placeholder"),
         };
 
         var list = new ListBox { Height = 260, FontSize = 13 };
+        List<Entry> entries = [];
 
         void Repopulate()
         {
             list.Items.Clear();
+            entries.Clear();
             string filter = input.Text.Trim();
 
             if (canNavigate(filter))
             {
-                list.Items.Add($"Go to:  {filter}");
+                entries.Add(new Entry(MainViewModel.Localize("Palette_GoTo", filter), null, filter));
             }
 
             foreach (Command command in commands.Where(c => c.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)))
             {
-                list.Items.Add(command.Name);
+                entries.Add(new Entry(command.Name, command, null));
+            }
+
+            foreach (Entry entry in entries)
+            {
+                list.Items.Add(entry.Display);
             }
         }
 
@@ -43,26 +55,21 @@ public static class CommandPalette
 
         void RunSelected()
         {
-            if (list.SelectedItem is not string text)
+            int index = list.SelectedIndex;
+            if (index < 0 || index >= entries.Count)
             {
                 return;
             }
 
-            if (text.StartsWith("Go to:", StringComparison.Ordinal))
+            Entry entry = entries[index];
+            if (entry.Path is not null)
             {
-                string path = text["Go to:".Length..].Trim();
-                if (canNavigate(path))
-                {
-                    result = new PaletteResult(null, path);
-                    dialog.Hide();
-                }
-                return;
+                result = new PaletteResult(null, entry.Path);
+                dialog.Hide();
             }
-
-            Command? command = commands.FirstOrDefault(c => c.Name == text);
-            if (command is not null)
+            else if (entry.Cmd is not null)
             {
-                result = new PaletteResult(command, null);
+                result = new PaletteResult(entry.Cmd, null);
                 dialog.Hide();
             }
         }
@@ -87,16 +94,16 @@ public static class CommandPalette
         dialog = new ContentDialog
         {
             XamlRoot = root,
-            Title = "Command palette (Ctrl+K)",
+            Title = MainViewModel.Localize("Palette_Title"),
             Content = new StackPanel { Spacing = 8, MinWidth = 460, Children = { input, list } },
-            PrimaryButtonText = "Run",
-            CloseButtonText = "Close",
+            PrimaryButtonText = MainViewModel.Localize("Dialog_Run"),
+            CloseButtonText = MainViewModel.Localize("Dialog_Close"),
             DefaultButton = ContentDialogButton.Primary,
         };
 
         dialog.PrimaryButtonClick += (_, args) =>
         {
-            if (list.SelectedItem is string)
+            if (list.SelectedIndex >= 0)
             {
                 RunSelected();
             }

@@ -5,6 +5,8 @@ using Microsoft.UI.Xaml.Controls;
 using ModernRegedit.Services;
 using Microsoft.UI.Xaml.Automation;
 
+using ModernRegedit.ViewModels;
+
 namespace ModernRegedit.UI;
 
 /// <summary>值编辑对话框：按类型出编辑器，产出原始注册表字节。</summary>
@@ -27,10 +29,10 @@ internal static class ValueDialogs
     {
         (string Name, RegKind Kind, byte[] Data)? result = null;
 
-        var nameBox = new TextBox { Header = "Value name", Text = valueName };
+        var nameBox = new TextBox { Header = MainViewModel.Localize("VD_NameHeader"), Text = valueName };
         AutomationProperties.SetAutomationId(nameBox, "DialogNameBox");
 
-        var typeCombo = new ComboBox { Header = "Type", Width = 260, HorizontalAlignment = HorizontalAlignment.Left };
+        var typeCombo = new ComboBox { Header = MainViewModel.Localize("VD_TypeHeader"), Width = 260, HorizontalAlignment = HorizontalAlignment.Left };
         foreach (RegKind k in EditableKinds)
         {
             typeCombo.Items.Add(new ComboBoxItem { Content = RegValueDecoder.KindName(k), Tag = k });
@@ -71,8 +73,8 @@ internal static class ValueDialogs
             XamlRoot = root,
             Title = title,
             Content = rootPanel,
-            PrimaryButtonText = "OK",
-            CloseButtonText = "Cancel",
+            PrimaryButtonText = MainViewModel.Localize("Dialog_OK"),
+            CloseButtonText = MainViewModel.Localize("Dialog_Cancel"),
             DefaultButton = ContentDialogButton.Primary,
         };
 
@@ -82,7 +84,7 @@ internal static class ValueDialogs
             if (name.Length == 0 && valueName.Length != 0)
             {
                 // 原值名非空（不是默认值）时，新名字不能为空。
-                errorText.Text = "Value name is required.";
+                errorText.Text = MainViewModel.Localize("VD_NameRequired");
                 args.Cancel = true;
                 return;
             }
@@ -90,7 +92,7 @@ internal static class ValueDialogs
             byte[]? parsed = TryRead(editor.ReadBack);
             if (parsed is null)
             {
-                errorText.Text = "Invalid data for this type.";
+                errorText.Text = MainViewModel.Localize("VD_InvalidData");
                 args.Cancel = true;
                 return;
             }
@@ -130,7 +132,7 @@ internal static class ValueDialogs
     {
         var box = new TextBox
         {
-            Header = "String data",
+            Header = MainViewModel.Localize("VD_StringHeader"),
             AcceptsReturn = true,
             Height = 96,
             TextWrapping = TextWrapping.Wrap,
@@ -146,7 +148,7 @@ internal static class ValueDialogs
         string[] parts = raw.Split('\0', StringSplitOptions.RemoveEmptyEntries);
         var box = new TextBox
         {
-            Header = "Strings (one per line)",
+            Header = MainViewModel.Localize("VD_MultiHeader"),
             AcceptsReturn = true,
             Height = 140,
             FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Cascadia Mono"),
@@ -180,12 +182,12 @@ internal static class ValueDialogs
             FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Cascadia Mono"),
         };
         AutomationProperties.SetAutomationId(box, "DialogEditorBox");
-        var hexRadio = new RadioButton { Content = "Hex", IsChecked = true, GroupName = $"num{kind}" };
-        var decRadio = new RadioButton { Content = "Decimal", GroupName = $"num{kind}" };
+        var hexRadio = new RadioButton { Content = MainViewModel.Localize("VD_Hex"), IsChecked = true, GroupName = $"num{kind}" };
+        var decRadio = new RadioButton { Content = MainViewModel.Localize("VD_Decimal"), GroupName = $"num{kind}" };
 
         void SetText(ulong v)
         {
-            box.Header = $"{(is32 ? 32 : 64)}-bit integer ({(hex ? "hex" : "decimal")})";
+            box.Header = MainViewModel.Localize("VD_IntHeader", is32 ? 32 : 64, hex ? MainViewModel.Localize("VD_Hex") : MainViewModel.Localize("VD_Decimal"));
             box.Text = is32
                 ? (hex ? ((uint)v).ToString("X8", CultureInfo.InvariantCulture) : ((uint)v).ToString(CultureInfo.InvariantCulture))
                 : (hex ? v.ToString("X16", CultureInfo.InvariantCulture) : v.ToString(CultureInfo.InvariantCulture));
@@ -267,7 +269,7 @@ internal static class ValueDialogs
     {
         var box = new TextBox
         {
-            Header = "Hex bytes (any spacing)",
+            Header = MainViewModel.Localize("VD_HexBytesHeader"),
             AcceptsReturn = true,
             Height = 160,
             FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Cascadia Mono"),

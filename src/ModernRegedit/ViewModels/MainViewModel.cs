@@ -164,10 +164,10 @@ public partial class MainViewModel : ObservableObject
                 return Localize("Status_Ready");
             }
 
-            string view = Is32BitView ? "32-bit view" : "64-bit view";
+            string view = Is32BitView ? Localize("View_32") : Localize("View_64");
             return _isLoadingValues
-                ? $"{SelectedNode.FullPath} — loading…"
-                : $"{SelectedNode.FullPath} — {_selectedSubKeyCount} subkeys, {_selectedValueCount} values — {view}";
+                ? Localize("Status_Loading", SelectedNode.FullPath)
+                : Localize("Status_Selected", SelectedNode.FullPath, _selectedSubKeyCount, _selectedValueCount, view);
         }
     }
 
@@ -322,11 +322,11 @@ public partial class MainViewModel : ObservableObject
         if (!MatchKeyNames && !MatchValueNames && !MatchValueData)
         {
             IsSearchRunning = false;
-            SearchStatus = "Select at least one search scope";
+            SearchStatus = Localize("Status_ScopeRequired");
             return;
         }
 
-        SearchStatus = "Searching…";
+        SearchStatus = Localize("Status_Searching");
 
         await _searchService.SearchAsync(
             query,
@@ -366,8 +366,8 @@ public partial class MainViewModel : ObservableObject
                     }
 
                     SearchStatus = _searchCapped
-                        ? $"First {MaxSearchResults} results — refine the query"
-                        : $"Searching… {_searchResultCount} results";
+                        ? Localize("Status_Search_Capped", MaxSearchResults)
+                        : Localize("Status_Searching_Count", _searchResultCount);
                 });
             });
 
@@ -379,10 +379,10 @@ public partial class MainViewModel : ObservableObject
         IsSearchRunning = false;
         string elapsed = _searchStopwatch!.Elapsed.TotalSeconds.ToString("0.0");
         SearchStatus = _searchCapped
-            ? $"First {MaxSearchResults} results ({elapsed}s) — refine the query"
+            ? Localize("Status_Search_Capped_Elapsed", MaxSearchResults, elapsed)
             : cts.IsCancellationRequested
-                ? $"Cancelled — {_searchResultCount} results ({elapsed}s)"
-                : $"{_searchResultCount} results ({elapsed}s)";
+                ? Localize("Status_Search_Cancelled", _searchResultCount, elapsed)
+                : Localize("Status_Search_Done", _searchResultCount, elapsed);
     }
 
     public void CancelSearch()
@@ -484,7 +484,7 @@ public partial class MainViewModel : ObservableObject
         WriteResult result = await RegistryWriteService.ApplyAsync(operations, CurrentView);
         if (!result.Ok)
         {
-            SetError($"Write failed: {result.Error}");
+            SetError(Localize("Status_WriteFailed", result.Error));
             return false;
         }
 
@@ -821,14 +821,14 @@ public partial class MainViewModel : ObservableObject
         string? normalized = NormalizePath(path);
         if (normalized is null)
         {
-            SetError($"Cannot parse path '{path.Trim()}'");
+            SetError(Localize("Status_PathUnparsed", path.Trim()));
             return null;
         }
 
         RegistryKeyNode? node = await ResolveNodeAsync(normalized);
         if (node is null)
         {
-            SetError($"Path not found: {normalized}");
+            SetError(Localize("Status_PathNotFound", normalized));
         }
 
         return node;
@@ -850,7 +850,7 @@ public partial class MainViewModel : ObservableObject
         RiskSeverity = risk?.Level == RiskLevel.Critical
             ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error
             : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning;
-        RiskMessage = risk?.Reason ?? string.Empty;
+        RiskMessage = risk is null ? string.Empty : Localize("Risk_Reason_" + risk.Key);
 
         int generation = ++_selectGeneration;
         _selectedSubKeyCount = 0;
@@ -985,8 +985,14 @@ public partial class MainViewModel : ObservableObject
         return await ResolveNodeAsync(currentPath);
     }
 
-    internal static string Localize(string key) =>
-        new Microsoft.Windows.ApplicationModel.Resources.ResourceManager().MainResourceMap.GetValue("Resources/" + key).ValueAsString;
+    internal static string Localize(string key, params object[] args)
+    {
+        string format = new Microsoft.Windows.ApplicationModel.Resources.ResourceManager()
+            .MainResourceMap.GetValue("Resources/" + key).ValueAsString;
+        return args.Length == 0
+            ? format
+            : string.Format(System.Globalization.CultureInfo.CurrentCulture, format, args);
+    }
 
     private static RegistryValueRow MakeRow(
         string displayName, string valueName, RegKind kind, byte[] data, string dataDisplay, bool isUnset = false) => new()
