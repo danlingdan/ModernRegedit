@@ -144,6 +144,8 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    public ObservableCollection<string> Favorites { get; } = new();
+
     public void Initialize(DispatcherQueue dispatcherQueue)
     {
         _dispatcherQueue = dispatcherQueue;
@@ -152,6 +154,53 @@ public partial class MainViewModel : ObservableObject
         {
             Roots.Add(new RegistryKeyNode(root.Name, root.Name));
         }
+
+        _settings = SettingsStore.Load();
+        foreach (string favorite in _settings.Favorites)
+        {
+            Favorites.Add(favorite);
+        }
+
+        if (_settings.Is32BitView && Environment.Is64BitOperatingSystem)
+        {
+            Is32BitView = true;
+        }
+    }
+
+    private SettingsStore _settings = new();
+
+    public string? LastKey => _settings.LastKey;
+
+    public void SaveSettings()
+    {
+        _settings.Favorites = Favorites.ToList();
+        _settings.Is32BitView = Is32BitView;
+        _settings.LastKey = SelectedNode?.FullPath;
+        _settings.Save();
+    }
+
+    public bool IsFavorite(string path) =>
+        Favorites.Any(f => string.Equals(f, path, StringComparison.OrdinalIgnoreCase));
+
+    public void ToggleFavorite(string path)
+    {
+        string? existing = Favorites.FirstOrDefault(f => string.Equals(f, path, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            Favorites.Remove(existing);
+        }
+        else
+        {
+            Favorites.Add(path);
+        }
+
+        SaveSettings();
+    }
+
+    /// <summary>窗口关闭前保存位置记忆。</summary>
+    public void PersistSession()
+    {
+        SaveSettings();
     }
 
     public RegistryView CurrentView => Is32BitView ? RegistryView.Registry32 : RegistryView.Registry64;

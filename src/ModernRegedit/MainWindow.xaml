@@ -99,6 +99,16 @@
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
 
+            <AppBarButton
+                Grid.Column="7"
+                x:Name="FavoritesButton"
+                AutomationProperties.AutomationId="FavoritesButton"
+                Icon="Favorite"
+                Label="Favorites"
+                IsCompact="True"
+                ToolTipService.ToolTip="Favorite keys"
+                Click="OnFavoritesClick" />
+
             <AppBarToggleButton
                 Grid.Column="5"
                 Label="32-bit"
@@ -120,13 +130,13 @@
 
             <TextBox
                 x:Name="AddressBar"
-                Grid.Column="7"
+                Grid.Column="8"
                 PlaceholderText="Type a key path, e.g. HKLM\SOFTWARE\Microsoft"
                 Text="{x:Bind ViewModel.AddressText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                 KeyDown="OnAddressKeyDown" />
 
             <AppBarButton
-                Grid.Column="8"
+                Grid.Column="9"
                 Icon="Filter"
                 Label="Scope"
                 IsCompact="True"
@@ -144,7 +154,7 @@
 
             <TextBox
                 x:Name="SearchBox"
-                Grid.Column="9"
+                Grid.Column="10"
                 Width="240"
                 AutomationProperties.AutomationId="SearchBox"
                 PlaceholderText="Search keys, values, data"

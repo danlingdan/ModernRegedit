@@ -31,6 +31,25 @@ public sealed partial class MainWindow : Window
         ViewModel.Initialize(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
         SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
         ApplyTitleBarTheme();
+        Closed += (_, _) => ViewModel.PersistSession();
+        _ = RestoreLastLocationAsync();
+    }
+
+    /// <summary>位置记忆：启动时回到上次退出所在键。</summary>
+    private async Task RestoreLastLocationAsync()
+    {
+        string? last = ViewModel.LastKey;
+        if (string.IsNullOrEmpty(last))
+        {
+            return;
+        }
+
+        await Task.Delay(600); // 等首帧布局与根节点就绪
+        RegistryKeyNode? node = await ViewModel.NavigateToAsync(last);
+        if (node is not null)
+        {
+            SelectTreeNode(node, recordHistory: false);
+        }
     }
 
     private void OnExpanding(TreeView sender, TreeViewExpandingEventArgs args)
@@ -120,6 +139,47 @@ public sealed partial class MainWindow : Window
         RootGrid.RequestedTheme = ThemeCycle[_themeIndex];
         ThemeButton.Label = ThemeLabels[_themeIndex];
         ApplyTitleBarTheme();
+    }
+
+    private void OnFavoritesClick(object sender, RoutedEventArgs e)
+    {
+        var menu = new MenuFlyout();
+        if (ViewModel.SelectedNode is not null && ViewModel.SelectedNode.FullPath.Contains('\\'))
+        {
+            bool isFav = ViewModel.IsFavorite(ViewModel.SelectedNode.FullPath);
+            var toggle = new MenuFlyoutItem
+            {
+                Text = isFav ? "Remove from favorites" : "Add current to favorites",
+            };
+            toggle.Click += (_, _) => ViewModel.ToggleFavorite(ViewModel.SelectedNode.FullPath);
+            menu.Items.Add(toggle);
+            menu.Items.Add(new MenuFlyoutSeparator());
+        }
+
+        foreach (string favorite in ViewModel.Favorites)
+        {
+            var item = new MenuFlyoutItem { Text = favorite };
+            string path = favorite;
+            item.Click += async (_, _) =>
+            {
+                await RunOnUiThreadAsync(async () =>
+                {
+                    RegistryKeyNode? node = await ViewModel.NavigateToAsync(path);
+                    if (node is not null)
+                    {
+                        SelectTreeNode(node, recordHistory: true);
+                    }
+                });
+            };
+            menu.Items.Add(item);
+        }
+
+        if (ViewModel.Favorites.Count == 0)
+        {
+            menu.Items.Add(new MenuFlyoutItem { Text = "(no favorites yet)", IsEnabled = false });
+        }
+
+        menu.ShowAt(FavoritesButton, new Windows.Foundation.Point(0, FavoritesButton.ActualHeight));
     }
 
     private async void OnSearchKeyDown(object sender, KeyRoutedEventArgs e)
