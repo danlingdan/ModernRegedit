@@ -113,6 +113,24 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial RegistryValueRow? SelectedValueRow { get; set; }
 
+    /// <summary>错误横幅（InfoBar）：写入/导航/解析失败时弹出，用户可关闭。</summary>
+    [ObservableProperty]
+    public partial bool IsErrorOpen { get; set; }
+
+    [ObservableProperty]
+    public partial string ErrorMessage { get; set; } = string.Empty;
+
+    /// <summary>高危键警告条：选中键命中清单时显示，Critical 红色 / Elevated 黄色。</summary>
+    [ObservableProperty]
+    public partial bool IsRiskOpen { get; set; }
+
+    [ObservableProperty]
+    public partial Microsoft.UI.Xaml.Controls.InfoBarSeverity RiskSeverity { get; private set; } =
+        Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning;
+
+    [ObservableProperty]
+    public partial string RiskMessage { get; private set; } = string.Empty;
+
     public Visibility CancelButtonVisibility => IsSearchRunning ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility CloseButtonVisibility => IsSearchRunning ? Visibility.Collapsed : Visibility.Visible;
@@ -442,8 +460,7 @@ public partial class MainViewModel : ObservableObject
         WriteResult result = await RegistryWriteService.ApplyAsync(operations, CurrentView);
         if (!result.Ok)
         {
-            _statusError = $"Write failed: {result.Error}";
-            OnPropertyChanged(nameof(StatusText));
+            SetError($"Write failed: {result.Error}");
             return false;
         }
 
@@ -501,6 +518,14 @@ public partial class MainViewModel : ObservableObject
     {
         _statusError = message;
         OnPropertyChanged(nameof(StatusText));
+    }
+
+    /// <summary>失败场景：状态栏与错误横幅同时提示。</summary>
+    public void SetError(string message)
+    {
+        SetStatusMessage(message);
+        ErrorMessage = message;
+        IsErrorOpen = true;
     }
 
     private static string RootNameOf(string path)
@@ -755,16 +780,14 @@ public partial class MainViewModel : ObservableObject
         string? normalized = NormalizePath(path);
         if (normalized is null)
         {
-            _statusError = $"Cannot parse path '{path.Trim()}'";
-            OnPropertyChanged(nameof(StatusText));
+            SetError($"Cannot parse path '{path.Trim()}'");
             return null;
         }
 
         RegistryKeyNode? node = await ResolveNodeAsync(normalized);
         if (node is null)
         {
-            _statusError = $"Path not found: {normalized}";
-            OnPropertyChanged(nameof(StatusText));
+            SetError($"Path not found: {normalized}");
         }
 
         return node;
@@ -780,6 +803,14 @@ public partial class MainViewModel : ObservableObject
         _statusError = null;
         SelectedNode = node;
         AddressText = node.FullPath;
+
+        HighRiskArea? risk = HighRiskKeys.Match(node.FullPath);
+        IsRiskOpen = risk is not null;
+        RiskSeverity = risk?.Level == RiskLevel.Critical
+            ? Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error
+            : Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning;
+        RiskMessage = risk?.Reason ?? string.Empty;
+
         int generation = ++_selectGeneration;
         _selectedSubKeyCount = 0;
         _selectedValueCount = 0;

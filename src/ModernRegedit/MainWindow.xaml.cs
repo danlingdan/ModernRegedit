@@ -774,7 +774,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            ViewModel.SetStatusMessage($"Cannot parse '{path}': {ex.Message}");
+            ViewModel.SetError($"Cannot parse '{path}': {ex.Message}");
             return;
         }
 

@@ -241,12 +241,32 @@
             RowSpacing="4">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Grid
+            <InfoBar
+                x:Name="ErrorInfoBar"
                 Grid.Row="0"
+                AutomationProperties.AutomationId="ErrorInfoBar"
+                IsClosable="True"
+                IsOpen="{x:Bind ViewModel.IsErrorOpen, Mode=TwoWay}"
+                Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                Severity="Error" />
+
+            <InfoBar
+                x:Name="RiskInfoBar"
+                Grid.Row="1"
+                AutomationProperties.AutomationId="RiskInfoBar"
+                IsClosable="True"
+                IsOpen="{x:Bind ViewModel.IsRiskOpen, Mode=TwoWay}"
+                Message="{x:Bind ViewModel.RiskMessage, Mode=OneWay}"
+                Severity="{x:Bind ViewModel.RiskSeverity, Mode=OneWay}" />
+
+            <Grid
+                Grid.Row="2"
                 Padding="12,6"
                 ColumnSpacing="8"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -274,7 +294,7 @@
             <ListView
                 x:Name="ValuesList"
                 AutomationProperties.AutomationId="ValuesList"
-                Grid.Row="1"
+                Grid.Row="3"
                 ItemsSource="{x:Bind ViewModel.Values}"
                 SelectedItem="{x:Bind ViewModel.SelectedValueRow, Mode=TwoWay}"
                 SelectionMode="Single"
@@ -319,7 +339,7 @@
             </ListView>
 
             <Grid
-                Grid.Row="2"
+                Grid.Row="4"
                 Height="220"
                 RowSpacing="4"
                 Visibility="{x:Bind ViewModel.SearchPanelVisibility, Mode=OneWay}">
