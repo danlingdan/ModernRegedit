@@ -117,3 +117,4 @@
 | [docs/research/05-注册表技术基础.md](docs/research/05-注册表技术基础.md) | 注册表架构、值类型、.reg 规范、高危键 |
 | [docs/research/06-WinUI3与商店上架专项.md](docs/research/06-WinUI3与商店上架专项.md) | TreeView 现状、MSIX 权限、allowElevation 预审 |
 | [docs/research/07-工具链最新稳定版本.md](docs/research/07-工具链最新稳定版本.md) | 各工具链版本核实记录 |
+| [docs/research/08-UI优化与基础功能.md](docs/research/08-UI优化与基础功能.md) | v1.0 后 UI 走查差距、API 核实、执行清单 |
