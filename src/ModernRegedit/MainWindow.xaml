@@ -11,6 +11,10 @@
         ColumnSpacing="8"
         RowSpacing="4"
         Margin="8">
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Modifiers="Control" Key="Z" Invoked="OnUndoAccelerator" />
+            <KeyboardAccelerator Modifiers="Control" Key="Y" Invoked="OnRedoAccelerator" />
+        </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -32,6 +36,8 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -39,6 +45,24 @@
 
             <AppBarButton
                 Grid.Column="0"
+                Icon="Undo"
+                Label="Undo"
+                IsCompact="True"
+                IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}"
+                ToolTipService.ToolTip="Undo (Ctrl+Z)"
+                Click="OnUndoClick" />
+
+            <AppBarButton
+                Grid.Column="1"
+                Icon="Redo"
+                Label="Redo"
+                IsCompact="True"
+                IsEnabled="{x:Bind ViewModel.CanRedo, Mode=OneWay}"
+                ToolTipService.ToolTip="Redo (Ctrl+Y)"
+                Click="OnRedoClick" />
+
+            <AppBarButton
+                Grid.Column="2"
                 Icon="Back"
                 Label="Back"
                 IsCompact="True"
@@ -51,7 +75,7 @@
             </AppBarButton>
 
             <AppBarButton
-                Grid.Column="1"
+                Grid.Column="3"
                 Icon="Forward"
                 Label="Forward"
                 IsCompact="True"
@@ -64,7 +88,7 @@
             </AppBarButton>
 
             <AppBarButton
-                Grid.Column="2"
+                Grid.Column="4"
                 Icon="Up"
                 Label="Up"
                 IsCompact="True"
@@ -76,7 +100,7 @@
             </AppBarButton>
 
             <AppBarToggleButton
-                Grid.Column="3"
+                Grid.Column="5"
                 Label="32-bit"
                 ToolTipService.ToolTip="Show the 32-bit registry view"
                 Checked="OnViewToggled"
@@ -84,7 +108,7 @@
 
             <AppBarButton
                 x:Name="ThemeButton"
-                Grid.Column="4"
+                Grid.Column="6"
                 AutomationProperties.AutomationId="ThemeButton"
                 Label="System"
                 ToolTipService.ToolTip="Cycle system / light / dark theme"
@@ -96,13 +120,13 @@
 
             <TextBox
                 x:Name="AddressBar"
-                Grid.Column="5"
+                Grid.Column="7"
                 PlaceholderText="Type a key path, e.g. HKLM\SOFTWARE\Microsoft"
                 Text="{x:Bind ViewModel.AddressText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                 KeyDown="OnAddressKeyDown" />
 
             <AppBarButton
-                Grid.Column="6"
+                Grid.Column="8"
                 Icon="Filter"
                 Label="Scope"
                 IsCompact="True"
@@ -120,7 +144,7 @@
 
             <TextBox
                 x:Name="SearchBox"
-                Grid.Column="7"
+                Grid.Column="9"
                 Width="240"
                 AutomationProperties.AutomationId="SearchBox"
                 PlaceholderText="Search keys, values, data"

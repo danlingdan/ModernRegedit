@@ -34,7 +34,9 @@ public partial class App : Application
     }
 
     /// <summary>崩溃日志写到包私有 LocalCache，便于事后从事件日志之外定位。</summary>
-    private static void LogCrash(string text)
+    internal static void LogContinuationOffThread() => LogCrash("diagnostic: continuation landed off the UI thread; requeued.");
+
+    internal static void LogCrash(string text)
     {
         try
         {

@@ -298,8 +298,86 @@ public partial class MainViewModel : ObservableObject
         SearchStatus = string.Empty;
     }
 
+    private sealed record HistoryEntry(string Description, WriteOperation[] UndoOps, WriteOperation[] ForwardOps);
+
+    private readonly Stack<HistoryEntry> _undoStack = new();
+    private readonly Stack<HistoryEntry> _redoStack = new();
+
+    private const int MaxUndoLevels = 50;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanUndo))]
+    public partial bool CanRedo { get; private set; }
+
+    public bool CanUndo => _undoStack.Count > 0;
+
+    private void UpdateUndoState()
+    {
+        OnPropertyChanged(nameof(CanUndo));
+        CanRedo = _redoStack.Count > 0;
+    }
+
+    public async Task<bool> UndoAsync()
+    {
+        if (_undoStack.Count == 0)
+        {
+            return false;
+        }
+
+        HistoryEntry entry = _undoStack.Pop();
+        UpdateUndoState();
+        Dictionary<string, SubtreeSnapshot?> before =
+            await WriteUndo.SnapshotForOpsAsync(new RegistryService(), entry.UndoOps, CurrentView);
+        if (await ExecuteWithHistoryAsync(entry.UndoOps, before, refreshPerPath: true, recordUndo: false))
+        {
+            _redoStack.Push(entry);
+            UpdateUndoState();
+            SetStatusMessage($"Undo: {entry.Description}");
+            return true;
+        }
+
+        _undoStack.Push(entry);
+        UpdateUndoState();
+        return false;
+    }
+
+    public async Task<bool> RedoAsync()
+    {
+        if (_redoStack.Count == 0)
+        {
+            return false;
+        }
+
+        HistoryEntry entry = _redoStack.Pop();
+        UpdateUndoState();
+        Dictionary<string, SubtreeSnapshot?> before =
+            await WriteUndo.SnapshotForOpsAsync(new RegistryService(), entry.ForwardOps, CurrentView);
+        if (await ExecuteWithHistoryAsync(entry.ForwardOps, before, refreshPerPath: true, recordUndo: false))
+        {
+            _undoStack.Push(entry);
+            UpdateUndoState();
+            SetStatusMessage($"Redo: {entry.Description}");
+            return true;
+        }
+
+        _redoStack.Push(entry);
+        UpdateUndoState();
+        return false;
+    }
+
     /// <summary>执行一批写操作，成功后刷新受影响的键；失败把原因写入状态栏。</summary>
     public async Task<bool> ApplyWritesAsync(IReadOnlyList<WriteOperation> operations, bool refreshPerPath = true)
+    {
+        Dictionary<string, SubtreeSnapshot?> before =
+            await WriteUndo.SnapshotForOpsAsync(new RegistryService(), operations, CurrentView);
+        return await ExecuteWithHistoryAsync(operations, before, refreshPerPath, recordUndo: true);
+    }
+
+    private async Task<bool> ExecuteWithHistoryAsync(
+        IReadOnlyList<WriteOperation> operations,
+        IReadOnlyDictionary<string, SubtreeSnapshot?> before,
+        bool refreshPerPath,
+        bool recordUndo)
     {
         WriteResult result = await RegistryWriteService.ApplyAsync(operations, CurrentView);
         if (!result.Ok)
@@ -307,6 +385,22 @@ public partial class MainViewModel : ObservableObject
             _statusError = $"Write failed: {result.Error}";
             OnPropertyChanged(nameof(StatusText));
             return false;
+        }
+
+        if (recordUndo)
+        {
+            WriteOperation[] undoOps = WriteUndo.BuildUndoOps(operations, before);
+            if (undoOps.Length > 0)
+            {
+                _undoStack.Push(new HistoryEntry(WriteUndo.Describe(operations), undoOps, operations.ToArray()));
+                while (_undoStack.Count > MaxUndoLevels)
+                {
+                    _undoStack.Pop();
+                }
+
+                _redoStack.Clear();
+                UpdateUndoState();
+            }
         }
 
         if (refreshPerPath)
@@ -382,13 +476,76 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        parent.Children.Clear();
-        parent.ChildrenLoaded = false;
-        parent.LoadTask = null;
-        parent.HasUnrealizedChildren = true;
-        if (parent.IsExpanded)
+        // 未展开的节点：标脏即可，下次展开按新状态加载。
+        if (!parent.IsExpanded || !parent.ChildrenLoaded)
         {
-            await EnsureChildrenLoadedAsync(parent);
+            parent.ChildrenLoaded = false;
+            parent.LoadTask = null;
+            parent.HasUnrealizedChildren = true;
+            if (parent.IsExpanded)
+            {
+                await EnsureChildrenLoadedAsync(parent);
+            }
+
+            return;
+        }
+
+        // 已展开：差量更新。对展开中的节点做 Children.Clear() 全量重建，
+        // 会在 TreeView 虚拟化下触发 WinUI 内部访问冲突（#8275 家族）。
+        RegistryView view = CurrentView;
+        IReadOnlyList<RegistryKeyName>? fresh = await Task.Run(() =>
+        {
+            try
+            {
+                return _service.GetSubKeyNames(parent.FullPath, view);
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+        });
+        if (fresh is null)
+        {
+            return;
+        }
+
+        var byTitle = new Dictionary<string, RegistryKeyNode>(StringComparer.OrdinalIgnoreCase);
+        for (int i = parent.Children.Count - 1; i >= 0; i--)
+        {
+            byTitle[parent.Children[i].Title] = parent.Children[i];
+        }
+
+        var freshTitles = fresh.Select(k => k.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        for (int i = parent.Children.Count - 1; i >= 0; i--)
+        {
+            if (!freshTitles.Contains(parent.Children[i].Title))
+            {
+                parent.Children.RemoveAt(i);
+            }
+        }
+
+        int cursor = 0;
+        foreach (RegistryKeyName key in fresh)
+        {
+            if (!byTitle.TryGetValue(key.Name, out RegistryKeyNode? node))
+            {
+                node = new RegistryKeyNode(key.Name, key.FullPath);
+            }
+
+            if (cursor < parent.Children.Count)
+            {
+                if (!string.Equals(parent.Children[cursor].Title, key.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    parent.Children.Remove(node);
+                    parent.Children.Insert(cursor, node);
+                }
+            }
+            else
+            {
+                parent.Children.Insert(cursor, node);
+            }
+
+            cursor++;
         }
     }
 

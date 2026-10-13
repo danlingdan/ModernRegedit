@@ -63,11 +63,14 @@ public sealed partial class MainWindow : Window
         }
 
         e.Handled = true;
-        RegistryKeyNode? node = await ViewModel.NavigateToAsync(AddressBar.Text);
-        if (node is not null)
+        await RunOnUiThreadAsync(async () =>
         {
-            SelectTreeNode(node, recordHistory: true);
-        }
+            RegistryKeyNode? node = await ViewModel.NavigateToAsync(AddressBar.Text);
+            if (node is not null)
+            {
+                SelectTreeNode(node, recordHistory: true);
+            }
+        });
     }
 
     private async void OnBackClick(object sender, RoutedEventArgs e)
@@ -124,7 +127,7 @@ public sealed partial class MainWindow : Window
         if (e.Key is VirtualKey.Enter)
         {
             e.Handled = true;
-            await ViewModel.SearchNowAsync();
+            await RunOnUiThreadAsync(async () => await ViewModel.SearchNowAsync());
         }
     }
 
@@ -151,18 +154,18 @@ public sealed partial class MainWindow : Window
         if (row is not null && !row.IsUnset)
         {
             var modify = new MenuFlyoutItem { Text = "Modify…" };
-            modify.Click += async (_, _) => await EditValueAsync(row);
+            modify.Click += async (_, _) => await RunOnUiThreadAsync(async () => await EditValueAsync(row));
             menu.Items.Add(modify);
 
             var delete = new MenuFlyoutItem { Text = "Delete" };
-            delete.Click += async (_, _) => await DeleteValueAsync(row);
+            delete.Click += async (_, _) => await RunOnUiThreadAsync(async () => await DeleteValueAsync(row));
             menu.Items.Add(delete);
 
             menu.Items.Add(new MenuFlyoutSeparator());
         }
 
         var newValue = new MenuFlyoutItem { Text = "New Value…" };
-        newValue.Click += async (_, _) => await NewValueAsync();
+        newValue.Click += async (_, _) => await RunOnUiThreadAsync(async () => await NewValueAsync());
         menu.Items.Add(newValue);
 
         menu.ShowAt(ValuesList, e.GetPosition(ValuesList));
@@ -230,6 +233,72 @@ public sealed partial class MainWindow : Window
         ]);
     }
 
+    private Microsoft.UI.Dispatching.DispatcherQueue DispatcherQueue => RootGrid.DispatcherQueue;
+
+    /// <summary>
+    /// 把 async 事件处理器的后续段强制归队 UI 线程。SynchronizationContext 偶发失效时
+    /// （同栈 RPC_E_WRONG_THREAD 崩溃已三现），await 续体会落在线程池上，这里兜底。
+    /// </summary>
+    private async Task RunOnUiThreadAsync(Func<Task> work)
+    {
+        if (DispatcherQueue.HasThreadAccess)
+        {
+            await work();
+            return;
+        }
+
+        App.LogContinuationOffThread();
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _ = DispatcherQueue.TryEnqueue(async () =>
+        {
+            try
+            {
+                await work();
+            }
+            catch (Exception ex)
+            {
+                App.LogCrash("RunOnUiThreadAsync: " + ex);
+            }
+            finally
+            {
+                completion.TrySetResult();
+            }
+        });
+        await completion.Task;
+    }
+
+    private void OnUndoClick(object sender, RoutedEventArgs e)
+    {
+        _ = RunOnUiThreadAsync(async () => await ViewModel.UndoAsync());
+    }
+
+    private void OnRedoClick(object sender, RoutedEventArgs e)
+    {
+        _ = RunOnUiThreadAsync(async () => await ViewModel.RedoAsync());
+    }
+
+    private void OnUndoAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (FocusManager.GetFocusedElement() is TextBox)
+        {
+            return; // 文本框内留给文本编辑
+        }
+
+        args.Handled = true;
+        _ = RunOnUiThreadAsync(async () => await ViewModel.UndoAsync());
+    }
+
+    private void OnRedoAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (FocusManager.GetFocusedElement() is TextBox)
+        {
+            return;
+        }
+
+        args.Handled = true;
+        _ = RunOnUiThreadAsync(async () => await ViewModel.RedoAsync());
+    }
+
     private static async Task<bool> ConfirmAsync(XamlRoot root, string title, string message, string action)
     {
         var dialog = new ContentDialog
@@ -293,21 +362,21 @@ public sealed partial class MainWindow : Window
 
         var menu = new MenuFlyout();
         var newKey = new MenuFlyoutItem { Text = "New Key…" };
-        newKey.Click += async (_, _) => await NewKeyAsync(node);
+        newKey.Click += async (_, _) => await RunOnUiThreadAsync(async () => await NewKeyAsync(node));
         menu.Items.Add(newKey);
 
         var newValue = new MenuFlyoutItem { Text = "New Value…" };
-        newValue.Click += async (_, _) => await NewValueUnderAsync(node);
+        newValue.Click += async (_, _) => await RunOnUiThreadAsync(async () => await NewValueUnderAsync(node));
         menu.Items.Add(newValue);
 
         if (node is not null && node.FullPath.Contains('\\'))
         {
             var rename = new MenuFlyoutItem { Text = "Rename…" };
-            rename.Click += async (_, _) => await RenameKeyAsync(node);
+            rename.Click += async (_, _) => await RunOnUiThreadAsync(async () => await RenameKeyAsync(node));
             menu.Items.Add(rename);
 
             var delete = new MenuFlyoutItem { Text = "Delete" };
-            delete.Click += async (_, _) => await DeleteKeyAsync(node);
+            delete.Click += async (_, _) => await RunOnUiThreadAsync(async () => await DeleteKeyAsync(node));
             menu.Items.Add(delete);
 
             menu.Items.Add(new MenuFlyoutSeparator());
@@ -316,12 +385,12 @@ public sealed partial class MainWindow : Window
         if (node is not null)
         {
             var export = new MenuFlyoutItem { Text = "Export…" };
-            export.Click += async (_, _) => await ExportAsync(node);
+            export.Click += async (_, _) => await RunOnUiThreadAsync(async () => await ExportAsync(node));
             menu.Items.Add(export);
         }
 
         var import = new MenuFlyoutItem { Text = "Import .reg…" };
-        import.Click += async (_, _) => await ImportAsync();
+        import.Click += async (_, _) => await RunOnUiThreadAsync(async () => await ImportAsync());
         menu.Items.Add(import);
 
         menu.ShowAt(KeyTree, e.GetPosition(KeyTree));
@@ -550,11 +619,14 @@ public sealed partial class MainWindow : Window
             string name => name,
         };
 
-        RegistryKeyNode? node = await ViewModel.NavigateToAsync(row.KeyPath);
-        if (node is not null)
+        await RunOnUiThreadAsync(async () =>
         {
-            SelectTreeNode(node, recordHistory: true);
-        }
+            RegistryKeyNode? node = await ViewModel.NavigateToAsync(row.KeyPath);
+            if (node is not null)
+            {
+                SelectTreeNode(node, recordHistory: true);
+            }
+        });
     }
 
     /// <summary>标题栏配色跟随内容主题，避免暗色内容配亮色标题栏的割裂感。</summary>
