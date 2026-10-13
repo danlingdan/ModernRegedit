@@ -22,6 +22,22 @@ public sealed class SettingsStore
     [JsonPropertyName("backupRetention")]
     public int BackupRetention { get; set; } = 200;
 
+    /// <summary>窗口位置记忆（物理像素）；null = 从未保存，用系统默认。</summary>
+    [JsonPropertyName("windowX")]
+    public int? WindowX { get; set; }
+
+    [JsonPropertyName("windowY")]
+    public int? WindowY { get; set; }
+
+    [JsonPropertyName("windowWidth")]
+    public int? WindowWidth { get; set; }
+
+    [JsonPropertyName("windowHeight")]
+    public int? WindowHeight { get; set; }
+
+    [JsonPropertyName("windowMaximized")]
+    public bool WindowMaximized { get; set; }
+
     private static string FilePath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ModernRegedit", "settings.json");

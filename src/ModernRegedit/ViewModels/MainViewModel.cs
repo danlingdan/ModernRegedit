@@ -209,6 +209,21 @@ public partial class MainViewModel : ObservableObject
         SaveSettings();
     }
 
+    /// <summary>上次会话的窗口位置（物理像素）；未保存过返回 null。</summary>
+    public (int X, int Y, int W, int H, bool Maximized)? WindowPlacement =>
+        _settings.WindowWidth is > 0 && _settings.WindowHeight is > 0
+            ? (_settings.WindowX ?? 120, _settings.WindowY ?? 120, _settings.WindowWidth.Value, _settings.WindowHeight.Value, _settings.WindowMaximized)
+            : null;
+
+    public void UpdateWindowPlacement(int x, int y, int w, int h, bool maximized)
+    {
+        _settings.WindowX = x;
+        _settings.WindowY = y;
+        _settings.WindowWidth = w;
+        _settings.WindowHeight = h;
+        _settings.WindowMaximized = maximized;
+    }
+
     public void SaveSettings()
     {
         _settings.Favorites = Favorites.ToList();

@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -7,6 +8,42 @@ using ModernRegedit.ViewModels;
 using Windows.System;
 
 namespace ModernRegedit;
+
+/// <summary>GetWindowPlacement：窗口还原边界与最大化状态（保存位置记忆用）。</summary>
+internal static class WindowPlacementNative
+{
+    public const int SW_SHOWMAXIMIZED = 3;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WINDOWPLACEMENT
+    {
+        public uint length;
+        public uint flags;
+        public uint showCmd;
+        public POINT ptMinPosition;
+        public POINT ptMaxPosition;
+        public RECT rcNormalPosition;
+    }
+
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpplwnd);
+}
 
 public sealed partial class MainWindow : Window
 {
@@ -39,8 +76,62 @@ public sealed partial class MainWindow : Window
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         ApplyStartupSettings();
-        Closed += (_, _) => ViewModel.PersistSession();
+        ApplyWindowPlacement();
+        Closed += (_, _) =>
+        {
+            SaveWindowPlacement();
+            ViewModel.PersistSession();
+        };
         _ = RestoreLastLocationAsync();
+    }
+
+    /// <summary>启动时恢复上次窗口位置，钳制到最近工作区内。</summary>
+    private void ApplyWindowPlacement()
+    {
+        if (ViewModel.WindowPlacement is not { } p)
+        {
+            return;
+        }
+
+        var area = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(
+            AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Nearest);
+        int w = Math.Clamp(p.W, 500, area.WorkArea.Width);
+        int h = Math.Clamp(p.H, 350, area.WorkArea.Height);
+        int x = Math.Clamp(p.X, area.WorkArea.X - w + 120, area.WorkArea.X + area.WorkArea.Width - 120);
+        int y = Math.Clamp(p.Y, area.WorkArea.Y, area.WorkArea.Y + area.WorkArea.Height - 120);
+        AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, w, h));
+
+        if (p.Maximized && AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+        {
+            presenter.Maximize();
+        }
+    }
+
+    /// <summary>关闭前保存窗口位置；最大化时用 GetWindowPlacement 的还原边界。</summary>
+    private void SaveWindowPlacement()
+    {
+        IntPtr hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var placement = new WindowPlacementNative.WINDOWPLACEMENT { length = (uint)System.Runtime.InteropServices.Marshal.SizeOf<WindowPlacementNative.WINDOWPLACEMENT>() };
+        int x, y, w, h;
+        bool maximized;
+        if (WindowPlacementNative.GetWindowPlacement(hwnd, ref placement))
+        {
+            maximized = placement.showCmd == WindowPlacementNative.SW_SHOWMAXIMIZED;
+            x = placement.rcNormalPosition.Left;
+            y = placement.rcNormalPosition.Top;
+            w = placement.rcNormalPosition.Right - placement.rcNormalPosition.Left;
+            h = placement.rcNormalPosition.Bottom - placement.rcNormalPosition.Top;
+        }
+        else
+        {
+            maximized = false;
+            x = AppWindow.Position.X;
+            y = AppWindow.Position.Y;
+            w = AppWindow.Size.Width;
+            h = AppWindow.Size.Height;
+        }
+
+        ViewModel.UpdateWindowPlacement(x, y, w, h, maximized);
     }
 
     private void OnWindowActivated(object sender, Microsoft.UI.Xaml.WindowActivatedEventArgs args)
