@@ -362,9 +362,26 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        string keyPath = ViewModel.SelectedNode.FullPath;
+        if (!row.IsUnset && row.ValueName.Length > 0 && !string.Equals(edited.Value.Name, row.ValueName, StringComparison.Ordinal))
+        {
+            // 改名 = 置新值 + 删旧值；同名编辑走普通覆盖。
+            bool ok = await ViewModel.ApplyWritesAsync(
+            [
+                new WriteOperation(WriteOpKind.SetValue, keyPath, edited.Value.Name, ValueType: edited.Value.Kind, Data: edited.Value.Data),
+                new WriteOperation(WriteOpKind.DeleteValue, keyPath, row.ValueName),
+            ]);
+            if (ok)
+            {
+                ViewModel.SetStatusMessage($"Renamed '{row.Name}' to '{edited.Value.Name}'.");
+            }
+
+            return;
+        }
+
         await ViewModel.ApplyWritesAsync(
         [
-            new WriteOperation(WriteOpKind.SetValue, ViewModel.SelectedNode.FullPath, edited.Value.Name, ValueType: edited.Value.Kind, Data: edited.Value.Data),
+            new WriteOperation(WriteOpKind.SetValue, keyPath, edited.Value.Name, ValueType: edited.Value.Kind, Data: edited.Value.Data),
         ]);
     }
 
