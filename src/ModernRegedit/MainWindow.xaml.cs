@@ -919,9 +919,52 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        await ImportFromPathAsync(path);
+    }
+
+    /// <summary>拖放 .reg 到窗口 = 直接走导入差异预览（文件选择器在本机挂起，见已知坑）。</summary>
+    private void OnRootDragOver(object sender, DragEventArgs e)
+    {
+        if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+        {
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            ViewModel.SetStatusMessage("Drop to import the .reg file.");
+        }
+    }
+
+    private async void OnRootDrop(object sender, DragEventArgs e)
+    {
+        if (!e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+        {
+            return;
+        }
+
+        var deferral = e.GetDeferral();
+        try
+        {
+            var items = await e.DataView.GetStorageItemsAsync();
+            string? path = items
+                .OfType<Windows.Storage.StorageFile>()
+                .FirstOrDefault(f => f.Name.EndsWith(".reg", StringComparison.OrdinalIgnoreCase))?.Path;
+            if (path is null)
+            {
+                ViewModel.SetStatusMessage("Drop a .reg file to import.");
+                return;
+            }
+
+            await RunOnUiThreadAsync(async () => await ImportFromPathAsync(path));
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
+    private async Task ImportFromPathAsync(string path)
+    {
         if (!File.Exists(path))
         {
-            ViewModel.SetStatusMessage($"Import: file not found: {path}");
+            ViewModel.SetError($"Import: file not found: {path}");
             return;
         }
 

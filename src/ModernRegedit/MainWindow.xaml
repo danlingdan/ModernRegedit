@@ -9,7 +9,10 @@
     <Grid
         x:Name="RootGrid"
         ColumnSpacing="8"
-        RowSpacing="4">
+        RowSpacing="4"
+        AllowDrop="True"
+        DragOver="OnRootDragOver"
+        Drop="OnRootDrop">
         <Grid.KeyboardAccelerators>
             <KeyboardAccelerator Modifiers="Control" Key="Z" Invoked="OnUndoAccelerator" />
             <KeyboardAccelerator Modifiers="Control" Key="Y" Invoked="OnRedoAccelerator" />
