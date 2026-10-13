@@ -400,6 +400,17 @@ public sealed partial class MainWindow : Window
         _ = RunOnUiThreadAsync(async () => await ShowCommandPaletteAsync());
     }
 
+    /// <summary>F6 分区焦点循环：键树 → 值列表 → 地址栏。</summary>
+    private void OnF6Accelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        object? current = FocusManager.GetFocusedElement();
+        Control target = ReferenceEquals(current, KeyTree) ? ValuesList
+            : ReferenceEquals(current, ValuesList) ? AddressBar
+            : KeyTree;
+        args.Handled = true;
+        target.Focus(FocusState.Programmatic);
+    }
+
     private async Task ShowCommandPaletteAsync()
     {
         var commands = new List<UI.CommandPalette.Command>

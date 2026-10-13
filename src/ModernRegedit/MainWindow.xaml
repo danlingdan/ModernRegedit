@@ -15,6 +15,7 @@
             <KeyboardAccelerator Modifiers="Control" Key="Z" Invoked="OnUndoAccelerator" />
             <KeyboardAccelerator Modifiers="Control" Key="Y" Invoked="OnRedoAccelerator" />
             <KeyboardAccelerator Modifiers="Control" Key="K" Invoked="OnPaletteAccelerator" />
+            <KeyboardAccelerator Key="F6" Invoked="OnF6Accelerator" />
         </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
