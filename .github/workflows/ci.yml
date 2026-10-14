@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
     steps:
       - uses: actions/checkout@v4
 
@@ -18,4 +21,8 @@ jobs:
       - uses: microsoft/setup-msbuild@v2
 
       - name: Build
-        run: msbuild src/ModernRegedit/ModernRegedit.csproj /m /restore /p:Configuration=Debug /p:Platform=x64
+        run: msbuild src/ModernRegedit/ModernRegedit.csproj /m /restore /p:Configuration=${{ matrix.configuration }} /p:Platform=x64
+
+      - name: Registry regression
+        if: matrix.configuration == 'Debug'
+        run: dotnet run --project tests/ModernRegedit.Regression -c Release
