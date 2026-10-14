@@ -87,6 +87,8 @@
 | M4 安全 ✅（2026-10-13） | 自动备份、撤销重做、高危键警告、收藏夹、位置记忆 | 误操作可恢复 |
 | M5 发布 ✅（2026-10-13） | Ctrl+K、设置页、多语言、无障碍、商店素材、Store 提交、GitHub Releases | v1.0 上架 |
 
+- v1.0.1-rc.1：功能与 UI 优化，验收见 [1.0.1 预发布验收](docs/1.0.1-预发布验收.md)。
+
 - v1.1：快照对比、正则搜索替换、ACL 编辑器、`regedit://` 协议、最后写入时间。
 - v2.0：实时监控（ETW）、离线 hive 挂载、审计时间线、远程注册表、多机管理。
 
@@ -118,3 +120,5 @@
 | [docs/research/06-WinUI3与商店上架专项.md](docs/research/06-WinUI3与商店上架专项.md) | TreeView 现状、MSIX 权限、allowElevation 预审 |
 | [docs/research/07-工具链最新稳定版本.md](docs/research/07-工具链最新稳定版本.md) | 各工具链版本核实记录 |
 | [docs/research/08-UI优化与基础功能.md](docs/research/08-UI优化与基础功能.md) | v1.0 后 UI 走查差距、API 核实、执行清单 |
+
+| [docs/research/09-1.0.1优化审计.md](docs/research/09-1.0.1优化审计.md) | 1.0.1 数据完整性、工作区与搜索优化 |

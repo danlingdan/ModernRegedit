@@ -62,3 +62,5 @@ dotnet build src/ModernRegedit/ModernRegedit.csproj -c Debug -p:Platform=x64
 - 当前：M5 完成，v1.0.0 已发布（2026-10-13，GitHub Release + Store 提交待用户在 Partner Center 操作）。所有里程碑完成。
 - v1.0 后 UI 全面优化已完成（research/08 执行清单，2026-10-13）：集成式标题栏、InfoBar、键盘对齐、复制、拖放导入、窗口记忆、关于页、全量本地化；明细见 docs/research/08 与 CHANGELOG Unreleased。
 - 里程碑完成时必须：PLAN.md 表格打勾 + CHANGELOG.md 追加条目 + push 后确认 CI 绿（`gh run watch`）。
+
+- 当前维护版本：v1.0.1-rc.1（2026-10-14），功能与 UI 优化、核心回归和验收记录见 [docs/1.0.1-预发布验收.md](docs/1.0.1-预发布验收.md)。

@@ -1,10 +1,16 @@
 # Changelog
 
-Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org/), 0.x until the first stable release.
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.1-rc.1] - 2026-10-14
+
 ### Added
+
+- Instant value filtering by name, type and data; click column headings to sort, Esc to clear the filter
+- Direct New key, New value, Import, Export and Refresh commands, with an overflow menu for secondary actions
+- Registry regression runner covering both registry views, long names, large payloads, ordered imports, undo and .reg round trips
 
 - Integrated Fluent title bar: app icon and title over Mica end-to-end with tall caption buttons; the window title carries the current key path (research/08)
 - InfoBar banners: write / navigation / import failures in a closable error bar, and a tiered warning bar (red = startup-critical, amber = sensitive) when a high-risk key is selected
@@ -21,6 +27,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 - Full zh-CN / en localization for context menus, all dialogs, search status, command palette and high-risk key texts; the command palette matches entries by index so localized labels stay safe
 
 ### Fixed
+
+- Undo uses the original registry view, retains the newest 50 entries, and restores ordered changes to the same value correctly
+- Creating a key now applies the selected WOW64 view; opening a key keeps its Windows error code
+- Snapshot and backup failures stop writes; exports publish the file only after the whole subtree is read successfully
+- Elevation waits run off the UI thread; package identity uses GetCurrentPackageFullName and helper files are cleaned after completion or cancellation
+- Value enumeration supports names up to 16,383 characters and growing data buffers; binary copying includes the full payload
+- .reg continuation lines, DWORD validation, hex validation and big-endian / link type encodings; import planning reads each key once and respects statement order
+- Closing search invalidates queued results; bounded batch delivery keeps completion counts accurate; switching views clears old results
+- Search result navigation distinguishes a default value from a literal value named `(Default)`
+- Caption colors and dialogs follow the application theme; Ctrl+K also works from text fields
+- Settings are saved atomically and loaded with validated favorites, theme and retention
 
 - Renaming a value in the edit dialog used to leave the old name behind; it now applies set-new + delete-old as one undoable batch
 - The 32-bit toolbar toggle now reflects the restored view on startup
