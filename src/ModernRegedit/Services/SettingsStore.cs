@@ -54,7 +54,11 @@ public sealed class SettingsStore
         {
             if (File.Exists(FilePath))
             {
-                return JsonSerializer.Deserialize<SettingsStore>(File.ReadAllText(FilePath), JsonOptions) ?? new SettingsStore();
+                var settings = JsonSerializer.Deserialize<SettingsStore>(File.ReadAllText(FilePath), JsonOptions) ?? new SettingsStore();
+                settings.Favorites = (settings.Favorites ?? []).Where(f => !string.IsNullOrWhiteSpace(f)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                settings.Theme = Math.Clamp(settings.Theme, 0, 2);
+                settings.BackupRetention = Math.Clamp(settings.BackupRetention, 10, 1000);
+                return settings;
             }
         }
         catch
@@ -70,7 +74,13 @@ public sealed class SettingsStore
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(this, JsonOptions));
+            string temporary = FilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllText(temporary, JsonSerializer.Serialize(this, JsonOptions));
+                File.Move(temporary, FilePath, overwrite: true);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
         }
         catch
         {
