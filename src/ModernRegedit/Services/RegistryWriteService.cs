@@ -43,9 +43,22 @@ public static class RegistryWriteService
     public static bool IsElevated { get; } =
         new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 
-    /// <summary>打包进程的环境变量标记（MSIX 注入）。</summary>
-    public static bool HasPackageIdentity { get; } =
-        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PACKAGE_FAMILY_NAME"));
+    public static bool HasPackageIdentity { get; } = DetectPackageIdentity();
+
+    private static bool DetectPackageIdentity()
+    {
+        uint length = 0;
+        int error = GetCurrentPackageFullName(ref length, IntPtr.Zero);
+        return error switch
+        {
+            122 => true,
+            15700 => false,
+            _ => throw new System.ComponentModel.Win32Exception(error),
+        };
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetCurrentPackageFullName(ref uint length, IntPtr name);
 
     /// <summary>命令行助手模式入口。args 形如 --apply &lt;命令.json&gt; &lt;结果.json&gt;。返回进程退出码。</summary>
     public static int RunApplyMode(IReadOnlyList<string> args)
@@ -228,6 +241,8 @@ public static class RegistryWriteService
         Directory.CreateDirectory(dir);
         string commandFile = Path.Combine(dir, $"write-{Guid.NewGuid():N}.json");
         string resultFile = Path.Combine(dir, $"write-{Guid.NewGuid():N}.result.json");
+        try
+        {
         await File.WriteAllTextAsync(commandFile, JsonSerializer.Serialize(new WriteBatch(view, operations), JsonOptions));
 
         string target = ResolveLaunchTarget();
@@ -254,6 +269,12 @@ public static class RegistryWriteService
 
         try { File.Delete(commandFile); } catch { }
         return new WriteResult(false, "Elevated instance produced no result.");
+        }
+        finally
+        {
+            try { File.Delete(commandFile); } catch (IOException) { }
+            try { File.Delete(resultFile); } catch (IOException) { }
+        }
     }
 
     private static string ResolveLaunchTarget()

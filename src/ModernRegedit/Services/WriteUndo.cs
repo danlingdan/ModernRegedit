@@ -65,60 +65,77 @@ public static class WriteUndo
         IReadOnlyList<WriteOperation> applied,
         IReadOnlyDictionary<string, SubtreeSnapshot?> before)
     {
-        var undo = new List<WriteOperation>();
-        var restoredValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        for (int i = applied.Count - 1; i >= 0; i--)
+        var state = new Dictionary<string, SubtreeSnapshot?>(StringComparer.OrdinalIgnoreCase);
+        void Remember(SubtreeSnapshot snapshot)
         {
-            WriteOperation op = applied[i];
-            before.TryGetValue(op.KeyPath, out SubtreeSnapshot? snapshot);
-            if (op.Kind is WriteOpKind.SetValue or WriteOpKind.DeleteValue
-                && !restoredValues.Add(op.KeyPath + "\0" + (op.Name ?? string.Empty))) continue;
+            state[snapshot.Path] = snapshot;
+            foreach (var child in snapshot.Children) Remember(child);
+        }
+        foreach (var (path, snapshot) in before)
+        {
+            if (snapshot is null) state.TryAdd(path, null);
+            else Remember(snapshot);
+        }
+        SubtreeSnapshot Capture(string path)
+        {
+            var snapshot = state[path]!;
+            var children = state.Where(p => p.Value is not null && p.Key.StartsWith(path + "\\", StringComparison.OrdinalIgnoreCase)
+                && !p.Key[(path.Length + 1)..].Contains('\\')).Select(p => Capture(p.Key)).ToArray();
+            return snapshot with { Children = children };
+        }
+        var blocks = new List<WriteOperation[]>();
+        foreach (var op in applied)
+        {
+            state.TryGetValue(op.KeyPath, out var snapshot);
+            var inverse = new List<WriteOperation>();
             switch (op.Kind)
             {
                 case WriteOpKind.SetValue:
-                    (string n, RegKind k, byte[] d)? old = snapshot?.Values
-                        .Where(v => string.Equals(v.Name, op.Name, StringComparison.OrdinalIgnoreCase))
-                        .Select(v => ((string, RegKind, byte[])? )v).FirstOrDefault();
-                    undo.Add(old is { } found
-                        ? new WriteOperation(WriteOpKind.SetValue, op.KeyPath, found.n, ValueType: found.k, Data: found.d)
-                        : new WriteOperation(WriteOpKind.DeleteValue, op.KeyPath, op.Name ?? string.Empty));
-                    break;
-
                 case WriteOpKind.DeleteValue:
-                    old = snapshot?.Values
-                        .Where(v => string.Equals(v.Name, op.Name, StringComparison.OrdinalIgnoreCase))
-                        .Select(v => ((string, RegKind, byte[])? )v).FirstOrDefault();
-                    if (old is { } restored)
+                    var old = snapshot?.Values.Where(v => string.Equals(v.Name, op.Name ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+                        .Select(v => ((string Name, RegKind Kind, byte[] Data)?)v).FirstOrDefault();
+                    if (old is { } value)
+                        inverse.Add(new(WriteOpKind.SetValue, op.KeyPath, value.Name, ValueType: value.Kind, Data: value.Data));
+                    else if (op.Kind == WriteOpKind.SetValue)
+                        inverse.Add(new(WriteOpKind.DeleteValue, op.KeyPath, op.Name ?? string.Empty));
+                    if (snapshot is not null)
                     {
-                        undo.Add(new WriteOperation(WriteOpKind.SetValue, op.KeyPath, restored.n, ValueType: restored.k, Data: restored.d));
+                        var values = snapshot.Values.Where(v => !string.Equals(v.Name, op.Name ?? string.Empty, StringComparison.OrdinalIgnoreCase)).ToList();
+                        if (op.Kind == WriteOpKind.SetValue) values.Add((op.Name ?? string.Empty, op.ValueType, op.Data ?? []));
+                        state[op.KeyPath] = snapshot with { Values = values.ToArray() };
                     }
-
                     break;
-
                 case WriteOpKind.CreateKey:
                     if (snapshot is null)
                     {
-                        undo.Add(new WriteOperation(WriteOpKind.DeleteKey, op.KeyPath));
+                        inverse.Add(new(WriteOpKind.DeleteKey, op.KeyPath));
+                        state[op.KeyPath] = new(op.KeyPath, [], []);
                     }
                     break;
-
                 case WriteOpKind.DeleteKey:
                     if (snapshot is not null)
                     {
-                        undo.Add(new WriteOperation(WriteOpKind.CreateKey, op.KeyPath));
-                        undo.AddRange(RebuildOps(snapshot));
+                        inverse.Add(new(WriteOpKind.CreateKey, op.KeyPath));
+                        inverse.AddRange(RebuildOps(Capture(op.KeyPath)));
                     }
-
+                    foreach (string path in state.Keys.Where(p => p.Equals(op.KeyPath, StringComparison.OrdinalIgnoreCase)
+                        || p.StartsWith(op.KeyPath + "\\", StringComparison.OrdinalIgnoreCase)).ToArray()) state[path] = null;
                     break;
-
                 case WriteOpKind.RenameKey:
-                    string newPath = op.KeyPath[..op.KeyPath.LastIndexOf('\\')] + "\\" + op.NewName;
-                    undo.Add(new WriteOperation(WriteOpKind.RenameKey, newPath, NewName: op.KeyPath[(op.KeyPath.LastIndexOf('\\') + 1)..]));
+                    string parent = op.KeyPath[..op.KeyPath.LastIndexOf('\\')];
+                    string newPath = parent + "\\" + op.NewName;
+                    inverse.Add(new(WriteOpKind.RenameKey, newPath, NewName: op.KeyPath[(parent.Length + 1)..]));
+                    foreach (string path in state.Keys.Where(p => p.Equals(op.KeyPath, StringComparison.OrdinalIgnoreCase)
+                        || p.StartsWith(op.KeyPath + "\\", StringComparison.OrdinalIgnoreCase)).ToArray())
+                    {
+                        if (state[path] is { } moved) state[newPath + path[op.KeyPath.Length..]] = moved with { Path = newPath + path[op.KeyPath.Length..] };
+                        state[path] = null;
+                    }
                     break;
             }
+            blocks.Add(inverse.ToArray());
         }
-
-        return undo.ToArray();
+        return blocks.AsEnumerable().Reverse().SelectMany(block => block).ToArray();
     }
 
     private static IEnumerable<WriteOperation> RebuildOps(SubtreeSnapshot snapshot)

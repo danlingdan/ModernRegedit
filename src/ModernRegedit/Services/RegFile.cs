@@ -14,10 +14,18 @@ internal static class RegFile
     {
         await Task.Run(() =>
         {
-            using var writer = new StreamWriter(filePath, false, new UnicodeEncoding(bigEndian: false, byteOrderMark: true));
-            writer.WriteLine(Header);
-            writer.WriteLine();
-            ExportKey(service, rootPath, view, writer);
+            string temporary = filePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (var writer = new StreamWriter(temporary, false, new UnicodeEncoding(bigEndian: false, byteOrderMark: true)))
+                {
+                    writer.WriteLine(Header);
+                    writer.WriteLine();
+                    ExportKey(service, rootPath, view, writer);
+                }
+                File.Move(temporary, filePath);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
         });
     }
 
@@ -155,10 +163,7 @@ internal static class RegFile
             if (line.StartsWith('['))
             {
                 int close = line.IndexOf(']');
-                if (close < 0)
-                {
-                    continue;
-                }
+                if (close < 0) throw new FormatException($"Line {i + 1}: missing closing bracket.");
 
                 string body = line[1..close];
                 if (body.StartsWith('-'))
@@ -177,7 +182,8 @@ internal static class RegFile
 
             if (current is null)
             {
-                continue; // 头部行或游离行
+                if (line is not (Header or "REGEDIT4")) throw new FormatException($"Line {i + 1}: value requires a key section.");
+                continue;
             }
 
             // hex 续行：以 ',' 或 ',\' 结尾时拼接下一行
@@ -208,7 +214,7 @@ internal static class RegFile
             "HKCR" or "HKEY_CLASSES_ROOT" => "HKEY_CLASSES_ROOT",
             "HKU" or "HKEY_USERS" => "HKEY_USERS",
             "HKCC" or "HKEY_CURRENT_CONFIG" => "HKEY_CURRENT_CONFIG",
-            _ => head,
+            _ => throw new FormatException($"Unknown registry root '{head}'."),
         };
         return path.Contains('\\') ? $"{full}{path[path.IndexOf('\\')..]}" : full;
     }
@@ -225,25 +231,16 @@ internal static class RegFile
         else if (line.StartsWith('"'))
         {
             int close = FindClosingQuote(line);
-            if (close < 0)
-            {
-                return;
-            }
+            if (close < 0) throw new FormatException("Missing closing quote.");
 
             name = Unescape(line[1..close]);
             rest = line[(close + 1)..];
         }
-        else
-        {
-            return;
-        }
+        else throw new FormatException("Invalid value name.");
 
-        if (!rest.StartsWith('='))
-        {
-            return;
-        }
-
-        rest = rest[1..];
+        rest = rest.TrimStart();
+        if (!rest.StartsWith('=')) throw new FormatException("Missing equals sign.");
+        rest = rest[1..].TrimStart();
         if (rest == "-")
         {
             values.Add((name, RegKind.None, DeleteValueMarker));
@@ -254,17 +251,14 @@ internal static class RegFile
         if (rest.StartsWith('"'))
         {
             int close = FindClosingQuote(rest);
-            if (close < 0)
-            {
-                return;
-            }
+            if (close < 0) throw new FormatException("Missing closing quote.");
 
             values.Add((name, RegKind.Sz, Encoding.Unicode.GetBytes(Unescape(rest[1..close]) + "\0")));
             return;
         }
 
         int colon = rest.IndexOf(':');
-        string typePart = colon >= 0 ? rest[..colon] : rest;
+        string typePart = (colon >= 0 ? rest[..colon] : rest).ToLowerInvariant();
         string dataPart = colon >= 0 ? rest[(colon + 1)..] : string.Empty;
 
         if (typePart == "dword")
@@ -345,6 +339,16 @@ internal static class RegFile
         var operations = new List<WriteOperation>();
         var rows = new List<DiffRow>();
         int added = 0, modified = 0, deleted = 0;
+        var state = new Dictionary<string, Dictionary<string, RegistryValueInfo>?>(StringComparer.OrdinalIgnoreCase);
+        var deletedPaths = new List<string>();
+        Dictionary<string, RegistryValueInfo>? ReadKey(string path)
+        {
+            if (state.TryGetValue(path, out var cached)) return cached;
+            if (deletedPaths.Any(p => path.Equals(p, StringComparison.OrdinalIgnoreCase) || path.StartsWith(p + "\\", StringComparison.OrdinalIgnoreCase))) return null;
+            try { return state[path] = service.GetValues(path, view).ToDictionary(v => v.Name, StringComparer.OrdinalIgnoreCase); }
+            catch (IOException ex) when (ex.InnerException is System.ComponentModel.Win32Exception { NativeErrorCode: 2 or 3 })
+            { return state[path] = null; }
+        }
 
         foreach (object statement in parsed.Statements)
         {
@@ -352,19 +356,20 @@ internal static class RegFile
             {
                 case RegKeyStatement key:
                 {
-                    bool keyExists = KeyExists(service, key.Path, view);
-                    if (!keyExists)
+                    var values = ReadKey(key.Path);
+                    if (values is null)
                     {
                         operations.Add(new WriteOperation(WriteOpKind.CreateKey, key.Path));
                         rows.Add(new DiffRow("Add", key.Path, string.Empty, "(key)"));
                         added++;
+                        state[key.Path] = values = new(StringComparer.OrdinalIgnoreCase);
                     }
 
                     foreach ((string name, RegKind kind, byte[] data) in key.Values)
                     {
                         if (ReferenceEquals(data, DeleteValueMarker))
                         {
-                            if (TryGetValue(service, key.Path, name, view, out byte[]? existing, out RegKind _))
+                            if (values.Remove(name))
                             {
                                 operations.Add(new WriteOperation(WriteOpKind.DeleteValue, key.Path, name));
                                 rows.Add(new DiffRow("Delete", key.Path, name.Length == 0 ? "(Default)" : name, "(value)"));
@@ -374,19 +379,20 @@ internal static class RegFile
                             continue;
                         }
 
-                        if (!TryGetValue(service, key.Path, name, view, out byte[]? existingData, out RegKind existingKind))
+                        if (!values.TryGetValue(name, out var existing))
                         {
                             operations.Add(new WriteOperation(WriteOpKind.SetValue, key.Path, name, ValueType: kind, Data: data));
                             rows.Add(new DiffRow("Add", key.Path, name.Length == 0 ? "(Default)" : name, RegValueDecoder.KindName(kind)));
                             added++;
                         }
-                        else if (!existingData.AsSpan().SequenceEqual(data) || existingKind != kind)
+                        else if (!existing.Data.AsSpan().SequenceEqual(data) || existing.Kind != kind)
                         {
                             operations.Add(new WriteOperation(WriteOpKind.SetValue, key.Path, name, ValueType: kind, Data: data));
                             rows.Add(new DiffRow("Modify", key.Path, name.Length == 0 ? "(Default)" : name,
-                                $"{RegValueDecoder.KindName(existingKind)} → {RegValueDecoder.KindName(kind)}"));
+                                $"{RegValueDecoder.KindName(existing.Kind)} → {RegValueDecoder.KindName(kind)}"));
                             modified++;
                         }
+                        values[name] = new(name, kind, data);
                     }
 
                     break;
@@ -394,12 +400,15 @@ internal static class RegFile
 
                 case RegDeleteKeyStatement del:
                 {
-                    if (KeyExists(service, del.Path, view))
+                    if (ReadKey(del.Path) is not null)
                     {
                         operations.Add(new WriteOperation(WriteOpKind.DeleteKey, del.Path));
                         rows.Add(new DiffRow("Delete key", del.Path, string.Empty, "(subtree)"));
                         deleted++;
                     }
+                    deletedPaths.Add(del.Path);
+                    foreach (string key in state.Keys.Where(p => p.Equals(del.Path, StringComparison.OrdinalIgnoreCase)
+                        || p.StartsWith(del.Path + "\\", StringComparison.OrdinalIgnoreCase)).ToArray()) state[key] = null;
 
                     break;
                 }
@@ -409,40 +418,4 @@ internal static class RegFile
         return new ImportPlan(operations, rows, added, modified, deleted);
     }
 
-    private static bool KeyExists(RegistryService service, string path, RegistryView view)
-    {
-        try
-        {
-            service.GetSubKeyCount(path, view);
-            return true;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-    }
-
-    private static bool TryGetValue(RegistryService service, string path, string name, RegistryView view, out byte[]? data, out RegKind kind)
-    {
-        data = null;
-        kind = RegKind.None;
-        try
-        {
-            foreach (RegistryValueInfo value in service.GetValues(path, view))
-            {
-                if (string.Equals(value.Name, name, StringComparison.OrdinalIgnoreCase))
-                {
-                    data = value.Data;
-                    kind = value.Kind;
-                    return true;
-                }
-            }
-
-            return false;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-    }
 }

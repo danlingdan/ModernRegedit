@@ -2,7 +2,7 @@ using System.Text;
 
 namespace ModernRegedit.Services;
 
-public sealed record SearchResult(string KeyPath, string ValueName, string DataPreview);
+public sealed record SearchResult(string KeyPath, string ValueName, string DataPreview, bool IsKeyMatch = false);
 
 /// <summary>搜索范围：键名 / 值名 / 值数据（至少勾选其一）。</summary>
 public sealed record SearchOptions(bool MatchKeyNames, bool MatchValueNames, bool MatchValueData);
@@ -106,7 +106,7 @@ public sealed class RegistrySearchService
             string keyName = path[(path.LastIndexOf('\\') + 1)..];
             if (keyName.Contains(query, StringComparison.OrdinalIgnoreCase))
             {
-                batch.Add(new SearchResult(path, string.Empty, "(key)"));
+                batch.Add(new SearchResult(path, string.Empty, "(key)", IsKeyMatch: true));
                 FlushIfNeeded(batch, onBatch);
             }
         }
@@ -171,7 +171,7 @@ public sealed class RegistrySearchService
             string valueName = value.Name;
             if (options.MatchValueNames && valueName.Contains(query, StringComparison.OrdinalIgnoreCase))
             {
-                batch.Add(new SearchResult(path, valueName.Length == 0 ? "(Default)" : valueName, "(value name)"));
+                batch.Add(new SearchResult(path, valueName, "(value name)"));
                 FlushIfNeeded(batch, onBatch);
                 continue;
             }
@@ -194,7 +194,7 @@ public sealed class RegistrySearchService
 
             if (matchText.Contains(query, StringComparison.OrdinalIgnoreCase))
             {
-                batch.Add(new SearchResult(path, valueName.Length == 0 ? "(Default)" : valueName, TruncatePreview(decoded)));
+                batch.Add(new SearchResult(path, valueName, TruncatePreview(decoded)));
                 FlushIfNeeded(batch, onBatch);
             }
         }

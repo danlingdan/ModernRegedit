@@ -5,6 +5,14 @@ namespace ModernRegedit.Services;
 
 internal static class RegValueDecoder
 {
+    public static string ClipboardText(RegKind kind, byte[] data) => kind switch
+    {
+        RegKind.Sz or RegKind.ExpandSz => ReadString(data),
+        RegKind.MultiSz => string.Join(Environment.NewLine, ReadMultiString(data)),
+        RegKind.Dword or RegKind.DwordBigEndian or RegKind.Qword => Decode(kind, data),
+        _ => string.Join(" ", data.Select(b => b.ToString("X2"))),
+    };
+
     public static string Decode(RegKind kind, byte[] data) => kind switch
     {
         RegKind.Sz => ReadString(data),
