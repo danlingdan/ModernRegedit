@@ -90,8 +90,7 @@ public static class RegistryWriteService
 
     public static async Task<WriteResult> ApplyAsync(IReadOnlyList<WriteOperation> operations, RegistryView view)
     {
-        // 写前自动备份（读取不需提权）；备份失败则中止写入——宁可不写，不可不可恢复。
-        bool backedUp = await TryWriteBackupsAsync(operations, view);
+        bool backedUp = await Task.Run(() => TryWriteBackupsAsync(operations, view));
         if (!backedUp)
         {
             return new WriteResult(false, "Backup failed — write aborted. Nothing was changed.");
@@ -239,14 +238,14 @@ public static class RegistryWriteService
             return new WriteResult(false, rc == 1223 ? "Elevation was cancelled." : $"Cannot launch elevated instance (error {rc}).");
         }
 
-        ShellNative.WaitForExitAndClose(processHandle);
+        await Task.Run(() => ShellNative.WaitForExitAndClose(processHandle));
 
         for (int attempt = 0; attempt < 10; attempt++)
         {
             if (File.Exists(resultFile))
             {
                 string json = await File.ReadAllTextAsync(resultFile);
-                try { File.Delete(resultFile); } catch { }
+                try { File.Delete(resultFile); File.Delete(commandFile); } catch { }
                 return JsonSerializer.Deserialize<WriteResult>(json, JsonOptions) ?? new WriteResult(false, "Empty result.");
             }
 

@@ -106,7 +106,7 @@ public sealed class RegistryService
         // RegCreateKeyEx 会连同缺失的中间键一起创建。
         int rc = RegistryNative.RegCreateKeyEx(
             root, subKey, 0, IntPtr.Zero, RegistryNative.RegOptionNonVolatile,
-            RegistryNative.KeyWrite, IntPtr.Zero, out IntPtr hKey, out _);
+            RegistryNative.KeyWrite | WowFlags(view), IntPtr.Zero, out IntPtr hKey, out _);
         if (rc != RegistryNative.ErrorSuccess)
         {
             throw new IOException($"Cannot create key '{fullPath}'.", rc);
@@ -117,7 +117,7 @@ public sealed class RegistryService
 
     public void DeleteKey(string fullPath, RegistryView view = RegistryView.Default)
     {
-        (IntPtr parent, string childName) = OpenParent(fullPath, view, RegistryNative.Delete);
+        (IntPtr parent, string childName) = OpenParent(fullPath, view, RegistryNative.Delete | RegistryNative.KeyRead | RegistryNative.KeyWrite);
         try
         {
             int rc = RegistryNative.RegDeleteTree(parent, childName);
@@ -199,9 +199,10 @@ public sealed class RegistryService
     {
         IntPtr root = OpenRoot(fullPath);
         int sam = access | WowFlags(view);
-        if (RegistryNative.RegOpenKeyEx(root, SubKeyPath(fullPath), 0, sam, out IntPtr hKey) != RegistryNative.ErrorSuccess)
+        int error = RegistryNative.RegOpenKeyEx(root, SubKeyPath(fullPath), 0, sam, out IntPtr hKey);
+        if (error != RegistryNative.ErrorSuccess)
         {
-            throw new IOException($"Cannot open registry key '{fullPath}'.");
+            throw new IOException($"Cannot open registry key '{fullPath}'.", new System.ComponentModel.Win32Exception(error));
         }
 
         return hKey;
@@ -235,7 +236,7 @@ public sealed class RegistryService
     {
         (_, int values) = GetCounts(hKey);
         var result = new List<RegistryValueInfo>(values);
-        var name = new char[256];
+        var name = new char[16384];
         var data = Array.Empty<byte>();
 
         for (int i = 0; i < values; i++)
@@ -243,9 +244,9 @@ public sealed class RegistryService
             int len = name.Length;
             int dataLen = 0;
             int err = RegistryNative.RegEnumValue(hKey, i, name, ref len, IntPtr.Zero, out int type, data, ref dataLen);
-            if (err == RegistryNative.ErrorMoreData)
+            while (err == RegistryNative.ErrorMoreData)
             {
-                data = new byte[dataLen];
+                data = new byte[Math.Max(dataLen, Math.Max(256, data.Length * 2))];
                 dataLen = data.Length;
                 len = name.Length;
                 err = RegistryNative.RegEnumValue(hKey, i, name, ref len, IntPtr.Zero, out type, data, ref dataLen);

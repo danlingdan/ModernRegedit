@@ -25,15 +25,8 @@ internal static class RegFile
     {
         IReadOnlyList<RegistryValueInfo> values;
         IReadOnlyList<RegistryKeyName> children;
-        try
-        {
-            values = service.GetValues(path, view);
-            children = service.GetSubKeyNames(path, view);
-        }
-        catch (IOException)
-        {
-            return; // 读不到（ACL/视图差异）的键跳过
-        }
+        values = service.GetValues(path, view);
+        children = service.GetSubKeyNames(path, view);
 
         writer.WriteLine($"[{path}]");
         foreach (RegistryValueInfo value in values)
@@ -59,8 +52,8 @@ internal static class RegFile
             RegKind.ExpandSz => $"{prefix}=hex(2):{HexList(data)}",
             RegKind.MultiSz => $"{prefix}=hex(7):{HexList(data)}",
             RegKind.None => $"{prefix}=hex(0):{HexList(data)}",
-            RegKind.DwordBigEndian => $"{prefix}=hex(4):{HexList(data)}",
-            RegKind.Link => $"{prefix}=hex(5):{HexList(data)}",
+            RegKind.DwordBigEndian => $"{prefix}=hex(5):{HexList(data)}",
+            RegKind.Link => $"{prefix}=hex(6):{HexList(data)}",
             RegKind.Qword => $"{prefix}=hex(b):{HexList(data)}",
             RegKind.ResourceList => $"{prefix}=hex(8):{HexList(data)}",
             RegKind.FullResourceDescriptor => $"{prefix}=hex(9):{HexList(data)}",
@@ -145,11 +138,15 @@ internal static class RegFile
 
         var statements = new List<object>();
         string[] lines = content.Replace("\r\n", "\n").Split('\n');
+        if (lines.FirstOrDefault(l => !string.IsNullOrWhiteSpace(l))?.Trim() is not (Header or "REGEDIT4"))
+        {
+            throw new FormatException("Missing registry file header.");
+        }
         RegKeyStatement? current = null;
 
         for (int i = 0; i < lines.Length; i++)
         {
-            string line = lines[i].TrimEnd();
+            string line = lines[i].Trim();
             if (line.Length == 0 || line.StartsWith(';'))
             {
                 continue;
@@ -184,20 +181,17 @@ internal static class RegFile
             }
 
             // hex 续行：以 ',' 或 ',\' 结尾时拼接下一行
-            while ((line.EndsWith(',') || line.EndsWith(",\\")) && i + 1 < lines.Length)
+            while (line.EndsWith('\\'))
             {
-                i++;
-                string next = lines[i].TrimEnd();
-                if (next.EndsWith('\\'))
+                if (++i >= lines.Length)
                 {
-                    next = next[..^1];
+                    throw new FormatException("Incomplete hex continuation.");
                 }
-
-                line += next.TrimStart();
-                line = line.TrimEnd();
+                line = line[..^1] + lines[i].Trim();
             }
 
-            ParseValueLine(line, current.Values);
+            try { ParseValueLine(line, current.Values); }
+            catch (FormatException ex) { throw new FormatException($"Line {i + 1}: {ex.Message}", ex); }
         }
 
         return new ParsedRegFile(statements);
@@ -275,9 +269,9 @@ internal static class RegFile
 
         if (typePart == "dword")
         {
-            byte[] bytes = new byte[4];
-            _ = uint.TryParse(dataPart.Trim(), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint v);
-            bytes = BitConverter.GetBytes(v);
+            if (!uint.TryParse(dataPart.Trim(), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint v))
+                throw new FormatException("Invalid DWORD data.");
+            byte[] bytes = BitConverter.GetBytes(v);
             values.Add((name, RegKind.Dword, bytes));
             return;
         }
@@ -289,15 +283,15 @@ internal static class RegFile
             "hex(1)" => RegKind.Sz,
             "hex(2)" => RegKind.ExpandSz,
             "hex(3)" => RegKind.Binary,
-            "hex(4)" => RegKind.DwordBigEndian,
-            "hex(5)" => RegKind.Link,
-            "hex(6)" => RegKind.MultiSz,
+            "hex(4)" => RegKind.Dword,
+            "hex(5)" => RegKind.DwordBigEndian,
+            "hex(6)" => RegKind.Link,
             "hex(7)" => RegKind.MultiSz,
             "hex(8)" => RegKind.ResourceList,
             "hex(9)" => RegKind.FullResourceDescriptor,
             "hex(a)" => RegKind.ResourceRequirementsList,
             "hex(b)" => RegKind.Qword,
-            _ => RegKind.Binary,
+            _ => throw new FormatException($"Unknown value type '{typePart}'."),
         };
 
         values.Add((name, kind, ParseHexList(dataPart)));
@@ -326,16 +320,14 @@ internal static class RegFile
 
     private static byte[] ParseHexList(string text)
     {
-        text = text.Replace(",", string.Empty).Replace(" ", string.Empty).Replace("\\", string.Empty);
-        if (text.Length % 2 != 0)
-        {
-            text += "0";
-        }
-
-        var bytes = new byte[text.Length / 2];
+        if (string.IsNullOrWhiteSpace(text)) return [];
+        string[] parts = text.Split(',');
+        var bytes = new byte[parts.Length];
         for (int i = 0; i < bytes.Length; i++)
         {
-            _ = byte.TryParse(text.AsSpan(i * 2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out bytes[i]);
+            string part = parts[i].Trim();
+            if (part.Length != 2 || !byte.TryParse(part, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out bytes[i]))
+                throw new FormatException("Invalid hex byte.");
         }
 
         return bytes;

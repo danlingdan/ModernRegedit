@@ -253,6 +253,8 @@ public partial class MainViewModel : ObservableObject
     /// <summary>窗口关闭前保存位置记忆。</summary>
     public void PersistSession()
     {
+        CloseSearchPanel();
+        _selectGeneration++;
         SaveSettings();
     }
 
@@ -392,7 +394,9 @@ public partial class MainViewModel : ObservableObject
 
     public void CloseSearchPanel()
     {
+        _searchDebounceGeneration++;
         _searchCts?.Cancel();
+        _searchCts = null;
         SearchResults.Clear();
         _searchResultCount = 0;
         IsSearchRunning = false;
@@ -400,7 +404,14 @@ public partial class MainViewModel : ObservableObject
         SearchStatus = string.Empty;
     }
 
-    private sealed record HistoryEntry(string Description, WriteOperation[] UndoOps, WriteOperation[] ForwardOps);
+    private sealed record HistoryEntry(string Description, WriteOperation[] UndoOps, WriteOperation[] ForwardOps, RegistryView View);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanUndo))]
+    [NotifyPropertyChangedFor(nameof(CanChangeView))]
+    public partial bool IsWriting { get; private set; }
+
+    public bool CanChangeView => !IsWriting;
 
     private readonly Stack<HistoryEntry> _undoStack = new();
     private readonly Stack<HistoryEntry> _redoStack = new();
@@ -411,77 +422,100 @@ public partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanUndo))]
     public partial bool CanRedo { get; private set; }
 
-    public bool CanUndo => _undoStack.Count > 0;
+    public bool CanUndo => !IsWriting && _undoStack.Count > 0;
 
     private void UpdateUndoState()
     {
         OnPropertyChanged(nameof(CanUndo));
-        CanRedo = _redoStack.Count > 0;
+        CanRedo = !IsWriting && _redoStack.Count > 0;
     }
 
-    public async Task<bool> UndoAsync()
+    private async Task<bool> UndoCoreAsync()
     {
         if (_undoStack.Count == 0)
         {
             return false;
         }
 
-        HistoryEntry entry = _undoStack.Pop();
+        HistoryEntry entry = _undoStack.Peek();
         UpdateUndoState();
         Dictionary<string, SubtreeSnapshot?> before =
-            await WriteUndo.SnapshotForOpsAsync(new RegistryService(), entry.UndoOps, CurrentView);
-        if (await ExecuteWithHistoryAsync(entry.UndoOps, before, refreshPerPath: true, recordUndo: false))
+            await Task.Run(() => WriteUndo.SnapshotForOpsAsync(new RegistryService(), entry.UndoOps, entry.View));
+        if (await ExecuteWithHistoryAsync(entry.UndoOps, before, refreshPerPath: true, recordUndo: false, view: entry.View))
         {
+            _undoStack.Pop();
             _redoStack.Push(entry);
             UpdateUndoState();
             SetStatusMessage($"Undo: {entry.Description}");
             return true;
         }
 
-        _undoStack.Push(entry);
-        UpdateUndoState();
         return false;
     }
 
-    public async Task<bool> RedoAsync()
+    private async Task<bool> RedoCoreAsync()
     {
         if (_redoStack.Count == 0)
         {
             return false;
         }
 
-        HistoryEntry entry = _redoStack.Pop();
+        HistoryEntry entry = _redoStack.Peek();
         UpdateUndoState();
         Dictionary<string, SubtreeSnapshot?> before =
-            await WriteUndo.SnapshotForOpsAsync(new RegistryService(), entry.ForwardOps, CurrentView);
-        if (await ExecuteWithHistoryAsync(entry.ForwardOps, before, refreshPerPath: true, recordUndo: false))
+            await Task.Run(() => WriteUndo.SnapshotForOpsAsync(new RegistryService(), entry.ForwardOps, entry.View));
+        if (await ExecuteWithHistoryAsync(entry.ForwardOps, before, refreshPerPath: true, recordUndo: false, view: entry.View))
         {
+            _redoStack.Pop();
             _undoStack.Push(entry);
             UpdateUndoState();
             SetStatusMessage($"Redo: {entry.Description}");
             return true;
         }
 
-        _redoStack.Push(entry);
-        UpdateUndoState();
         return false;
     }
 
     /// <summary>执行一批写操作，成功后刷新受影响的键；失败把原因写入状态栏。</summary>
-    public async Task<bool> ApplyWritesAsync(IReadOnlyList<WriteOperation> operations, bool refreshPerPath = true)
+    public Task<bool> UndoAsync() => RunWriteAsync(UndoCoreAsync);
+
+    public Task<bool> RedoAsync() => RunWriteAsync(RedoCoreAsync);
+
+    public Task<bool> ApplyWritesAsync(IReadOnlyList<WriteOperation> operations, bool refreshPerPath = true)
+        => RunWriteAsync(async () =>
+        {
+            RegistryView view = CurrentView;
+            WriteOperation[] batch = operations.ToArray();
+            var before = await Task.Run(() => WriteUndo.SnapshotForOpsAsync(new RegistryService(), batch, view));
+            return await ExecuteWithHistoryAsync(batch, before, refreshPerPath, recordUndo: true, view: view);
+        });
+
+    private async Task<bool> RunWriteAsync(Func<Task<bool>> action)
     {
-        Dictionary<string, SubtreeSnapshot?> before =
-            await WriteUndo.SnapshotForOpsAsync(new RegistryService(), operations, CurrentView);
-        return await ExecuteWithHistoryAsync(operations, before, refreshPerPath, recordUndo: true);
+        if (IsWriting) return false;
+        IsWriting = true;
+        UpdateUndoState();
+        try { return await action(); }
+        catch (Exception ex)
+        {
+            SetError(Localize("Status_WriteFailed", ex.Message));
+            return false;
+        }
+        finally
+        {
+            IsWriting = false;
+            UpdateUndoState();
+        }
     }
 
     private async Task<bool> ExecuteWithHistoryAsync(
         IReadOnlyList<WriteOperation> operations,
         IReadOnlyDictionary<string, SubtreeSnapshot?> before,
         bool refreshPerPath,
-        bool recordUndo)
+        bool recordUndo,
+        RegistryView view)
     {
-        WriteResult result = await RegistryWriteService.ApplyAsync(operations, CurrentView);
+        WriteResult result = await RegistryWriteService.ApplyAsync(operations, view);
         if (!result.Ok)
         {
             SetError(Localize("Status_WriteFailed", result.Error));
@@ -493,10 +527,12 @@ public partial class MainViewModel : ObservableObject
             WriteOperation[] undoOps = WriteUndo.BuildUndoOps(operations, before);
             if (undoOps.Length > 0)
             {
-                _undoStack.Push(new HistoryEntry(WriteUndo.Describe(operations), undoOps, operations.ToArray()));
-                while (_undoStack.Count > MaxUndoLevels)
+                _undoStack.Push(new HistoryEntry(WriteUndo.Describe(operations), undoOps, operations.ToArray(), view));
+                if (_undoStack.Count > MaxUndoLevels)
                 {
-                    _undoStack.Pop();
+                    var newest = _undoStack.Take(MaxUndoLevels).Reverse().ToArray();
+                    _undoStack.Clear();
+                    foreach (var entry in newest) _undoStack.Push(entry);
                 }
 
                 _redoStack.Clear();
@@ -937,7 +973,7 @@ public partial class MainViewModel : ObservableObject
                 if (pending is not null)
                 {
                     RegistryValueRow? target = Values.FirstOrDefault(v =>
-                        pending.Length == 0 ? v.Name == "(Default)" : string.Equals(v.Name, pending, StringComparison.OrdinalIgnoreCase));
+                        string.Equals(v.ValueName, pending, StringComparison.OrdinalIgnoreCase));
                     if (target is not null)
                     {
                         SelectedValueRow = target;
@@ -952,11 +988,12 @@ public partial class MainViewModel : ObservableObject
     /// <summary>切换 32/64 位视图：重建键树，原位置在新视图下重新定位（不改历史）。返回新视图下的原位置节点。</summary>
     public async Task<RegistryKeyNode?> SetViewAsync(bool is32Bit)
     {
-        if (Is32BitView == is32Bit)
+        if (IsWriting || Is32BitView == is32Bit)
         {
             return SelectedNode;
         }
 
+        CloseSearchPanel();
         Is32BitView = is32Bit;
         string? currentPath = SelectedNode?.FullPath;
 

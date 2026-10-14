@@ -19,29 +19,20 @@ public static class WriteUndo
         (string, RegKind, byte[])[] values;
         SubtreeSnapshot[] children = [];
 
-        bool exists;
         try
         {
             values = service.GetValues(path, view)
                 .Select(v => (v.Name, v.Kind, v.Data))
                 .ToArray();
-            exists = true;
         }
-        catch (IOException)
+        catch (IOException ex) when (ex.InnerException is System.ComponentModel.Win32Exception { NativeErrorCode: 2 or 3 })
         {
             return null;
         }
 
         if (deep)
         {
-            IReadOnlyList<RegistryKeyName> names = Array.Empty<RegistryKeyName>();
-            try
-            {
-                names = service.GetSubKeyNames(path, view);
-            }
-            catch (IOException)
-            {
-            }
+            IReadOnlyList<RegistryKeyName> names = service.GetSubKeyNames(path, view);
 
             var childTasks = names
                 .Select(n => SnapshotSubtreeAsync(service, n.FullPath, view, deep: true))
@@ -50,7 +41,6 @@ public static class WriteUndo
             children = done.Where(s => s is not null).Select(s => s!).ToArray();
         }
 
-        _ = exists;
         return new SubtreeSnapshot(path, values, children);
     }
 
@@ -76,15 +66,19 @@ public static class WriteUndo
         IReadOnlyDictionary<string, SubtreeSnapshot?> before)
     {
         var undo = new List<WriteOperation>();
+        var restoredValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (int i = applied.Count - 1; i >= 0; i--)
         {
             WriteOperation op = applied[i];
             before.TryGetValue(op.KeyPath, out SubtreeSnapshot? snapshot);
+            if (op.Kind is WriteOpKind.SetValue or WriteOpKind.DeleteValue
+                && !restoredValues.Add(op.KeyPath + "\0" + (op.Name ?? string.Empty))) continue;
             switch (op.Kind)
             {
                 case WriteOpKind.SetValue:
                     (string n, RegKind k, byte[] d)? old = snapshot?.Values
-                        .FirstOrDefault(v => string.Equals(v.Name, op.Name, StringComparison.OrdinalIgnoreCase));
+                        .Where(v => string.Equals(v.Name, op.Name, StringComparison.OrdinalIgnoreCase))
+                        .Select(v => ((string, RegKind, byte[])? )v).FirstOrDefault();
                     undo.Add(old is { } found
                         ? new WriteOperation(WriteOpKind.SetValue, op.KeyPath, found.n, ValueType: found.k, Data: found.d)
                         : new WriteOperation(WriteOpKind.DeleteValue, op.KeyPath, op.Name ?? string.Empty));
@@ -92,7 +86,8 @@ public static class WriteUndo
 
                 case WriteOpKind.DeleteValue:
                     old = snapshot?.Values
-                        .FirstOrDefault(v => string.Equals(v.Name, op.Name, StringComparison.OrdinalIgnoreCase));
+                        .Where(v => string.Equals(v.Name, op.Name, StringComparison.OrdinalIgnoreCase))
+                        .Select(v => ((string, RegKind, byte[])? )v).FirstOrDefault();
                     if (old is { } restored)
                     {
                         undo.Add(new WriteOperation(WriteOpKind.SetValue, op.KeyPath, restored.n, ValueType: restored.k, Data: restored.d));
@@ -101,7 +96,10 @@ public static class WriteUndo
                     break;
 
                 case WriteOpKind.CreateKey:
-                    undo.Add(new WriteOperation(WriteOpKind.DeleteKey, op.KeyPath));
+                    if (snapshot is null)
+                    {
+                        undo.Add(new WriteOperation(WriteOpKind.DeleteKey, op.KeyPath));
+                    }
                     break;
 
                 case WriteOpKind.DeleteKey:
