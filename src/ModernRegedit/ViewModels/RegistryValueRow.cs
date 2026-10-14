@@ -20,6 +20,8 @@ public sealed class RegistryValueRow
 
     public required string DataDisplay { get; init; }
 
+    public string ClipboardData => IsUnset ? string.Empty : RegValueDecoder.ClipboardText(Kind, Data);
+
     public Microsoft.UI.Xaml.Controls.Symbol KindSymbol => RegValuePresentation.GetSymbol(Kind);
 
     public Microsoft.UI.Xaml.Media.SolidColorBrush KindBrush => RegValuePresentation.GetBrush(Kind);

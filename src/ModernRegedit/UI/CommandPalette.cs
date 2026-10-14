@@ -19,6 +19,7 @@ public static class CommandPalette
         XamlRoot root, IReadOnlyList<Command> commands, Func<string, bool> canNavigate)
     {
         PaletteResult result = new(null, null);
+        var dialog = new ContentDialog();
         var input = new TextBox
         {
             Header = MainViewModel.Localize("Palette_InputHeader"),
@@ -91,16 +92,13 @@ public static class CommandPalette
             }
         };
 
-        dialog = new ContentDialog
-        {
-            XamlRoot = root,
-            Title = MainViewModel.Localize("Palette_Title"),
-            Content = new StackPanel { Spacing = 8, MinWidth = 460, Children = { input, list } },
-            PrimaryButtonText = MainViewModel.Localize("Dialog_Run"),
-            CloseButtonText = MainViewModel.Localize("Dialog_Close"),
-            DefaultButton = ContentDialogButton.Primary,
-        };
-
+        dialog.XamlRoot = root;
+        dialog.RequestedTheme = (root.Content as FrameworkElement)?.ActualTheme ?? ElementTheme.Default;
+        dialog.Title = MainViewModel.Localize("Palette_Title");
+        dialog.Content = new StackPanel { Spacing = 8, MinWidth = 380, Children = { input, list } };
+        dialog.PrimaryButtonText = MainViewModel.Localize("Dialog_Run");
+        dialog.CloseButtonText = MainViewModel.Localize("Dialog_Close");
+        dialog.DefaultButton = ContentDialogButton.Primary;
         dialog.PrimaryButtonClick += (_, args) =>
         {
             if (list.SelectedIndex >= 0)
@@ -123,5 +121,4 @@ public static class CommandPalette
         return result;
     }
 
-    private static ContentDialog? dialog;
 }

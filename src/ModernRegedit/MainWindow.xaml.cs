@@ -67,6 +67,40 @@ public sealed partial class MainWindow : Window
 
     public MainViewModel ViewModel { get; } = new();
 
+    private void OnRootSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        TreeColumn.Width = new GridLength(e.NewSize.Width < 900 ? 220 : 300);
+        SearchBox.Width = e.NewSize.Width < 900 ? 160 : 220;
+        ValueFilter.Width = e.NewSize.Width < 900 ? 160 : 220;
+    }
+
+    private void OnValueFilterKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape)
+        {
+            ViewModel.ValueFilterText = string.Empty;
+            e.Handled = true;
+        }
+    }
+
+    private void OnSortValuesClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string column }) ViewModel.SortValues(int.Parse(column));
+    }
+
+    private void OnNewKeyClick(object sender, RoutedEventArgs e) =>
+        _ = RunOnUiThreadAsync(() => NewKeyAsync(ViewModel.SelectedNode));
+    private void OnNewValueClick(object sender, RoutedEventArgs e) =>
+        _ = RunOnUiThreadAsync(NewValueAsync);
+    private void OnImportClick(object sender, RoutedEventArgs e) =>
+        _ = RunOnUiThreadAsync(ImportAsync);
+    private void OnExportClick(object sender, RoutedEventArgs e) =>
+        _ = RunOnUiThreadAsync(() => ExportAsync(ViewModel.SelectedNode));
+    private void OnRefreshClick(object sender, RoutedEventArgs e) =>
+        _ = RunOnUiThreadAsync(ViewModel.RefreshCurrentAsync);
+    private void OnCommandsClick(object sender, RoutedEventArgs e) =>
+        _ = RunOnUiThreadAsync(ShowCommandPaletteAsync);
+
     public MainWindow()
     {
         InitializeComponent();
@@ -82,6 +116,7 @@ public sealed partial class MainWindow : Window
 
         ApplyStartupSettings();
         ApplyWindowPlacement();
+        AppTitleText.Text = "ModernRegedit · 1.0.1 rc.1";
         Closed += (_, _) =>
         {
             SaveWindowPlacement();
@@ -100,7 +135,7 @@ public sealed partial class MainWindow : Window
 
         var area = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(
             AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Nearest);
-        int w = Math.Clamp(p.W, 500, area.WorkArea.Width);
+        int w = Math.Clamp(p.W, Math.Min(680, area.WorkArea.Width), area.WorkArea.Width);
         int h = Math.Clamp(p.H, 350, area.WorkArea.Height);
         int x = Math.Clamp(p.X, area.WorkArea.X - w + 120, area.WorkArea.X + area.WorkArea.Width - 120);
         int y = Math.Clamp(p.Y, area.WorkArea.Y, area.WorkArea.Y + area.WorkArea.Height - 120);
@@ -141,11 +176,21 @@ public sealed partial class MainWindow : Window
 
     private void OnWindowActivated(object sender, Microsoft.UI.Xaml.WindowActivatedEventArgs args)
     {
-        // 非激活态降低标题文字对比度（Fluent 规范：窗口激活状态要可辨识）。
-        AppTitleText.Foreground = (Microsoft.UI.Xaml.Media.SolidColorBrush)Application.Current.Resources[
-            args.WindowActivationState == WindowActivationState.Deactivated
-                ? "WindowCaptionForegroundDisabled"
-                : "WindowCaptionForeground"];
+        AppTitleText.Opacity = args.WindowActivationState == WindowActivationState.Deactivated ? 0.6 : 1;
+        UpdateCaptionColors();
+    }
+
+    private void OnActualThemeChanged(FrameworkElement sender, object args) => UpdateCaptionColors();
+
+    private void UpdateCaptionColors()
+    {
+        if (RootGrid is null) return;
+        bool dark = RootGrid.ActualTheme == ElementTheme.Dark;
+        var caption = AppWindow.TitleBar;
+        caption.ButtonForegroundColor = dark ? Microsoft.UI.Colors.White : Microsoft.UI.Colors.Black;
+        caption.ButtonInactiveForegroundColor = Microsoft.UI.Colors.Gray;
+        caption.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
+        caption.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
     }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -195,7 +240,7 @@ public sealed partial class MainWindow : Window
         RegistryKeyNode? node = await ViewModel.NavigateToAsync(last);
         if (node is not null)
         {
-            SelectTreeNode(node, recordHistory: false);
+            SelectTreeNode(node, recordHistory: true);
         }
     }
 
@@ -282,6 +327,7 @@ public sealed partial class MainWindow : Window
         }
 
         RegistryKeyNode? node = await ViewModel.SetViewAsync(toggle.IsChecked == true);
+        toggle.IsChecked = ViewModel.Is32BitView;
         if (node is not null)
         {
             SelectTreeNode(node, recordHistory: false);
@@ -322,6 +368,7 @@ public sealed partial class MainWindow : Window
         var dialog = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,
+            RequestedTheme = RootGrid.ActualTheme,
             Title = MainViewModel.Localize("Settings_Title"),
             Content = panel,
             PrimaryButtonText = MainViewModel.Localize("Dialog_Save"),
@@ -342,13 +389,10 @@ public sealed partial class MainWindow : Window
     /// <summary>设置对话框的“关于”区：包版本、许可证、仓库链接、备份文件夹入口。</summary>
     private static StackPanel BuildAboutSection()
     {
-        var v = Windows.ApplicationModel.Package.Current.Id.Version;
-        string version = $"{v.Major}.{v.Minor}.{v.Build}";
-
         var about = new StackPanel { Spacing = 4 };
         about.Children.Add(new TextBlock
         {
-            Text = MainViewModel.Localize("About_VersionLine", version),
+            Text = MainViewModel.Localize("About_Prerelease"),
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
         });
         about.Children.Add(new TextBlock
@@ -490,7 +534,7 @@ public sealed partial class MainWindow : Window
             menu.Items.Add(copyName);
 
             var copyData = new MenuFlyoutItem { Text = MainViewModel.Localize("Menu_CopyData") };
-            copyData.Click += (_, _) => CopyText(row.DataDisplay);
+            copyData.Click += (_, _) => CopyText(row.ClipboardData);
             menu.Items.Add(copyData);
 
             menu.Items.Add(new MenuFlyoutSeparator());
@@ -523,7 +567,7 @@ public sealed partial class MainWindow : Window
         }
 
         args.Handled = true;
-        CopyText(row.DataDisplay);
+        CopyText(row.ClipboardData);
         ViewModel.SetStatusMessage(MainViewModel.Localize("Status_CopiedData", row.Name));
     }
 
@@ -622,8 +666,6 @@ public sealed partial class MainWindow : Window
         ]);
     }
 
-    private Microsoft.UI.Dispatching.DispatcherQueue DispatcherQueue => RootGrid.DispatcherQueue;
-
     /// <summary>
     /// 把 async 事件处理器的后续段强制归队 UI 线程。SynchronizationContext 偶发失效时
     /// （同栈 RPC_E_WRONG_THREAD 崩溃已三现），await 续体会落在线程池上，这里兜底。
@@ -632,7 +674,8 @@ public sealed partial class MainWindow : Window
     {
         if (DispatcherQueue.HasThreadAccess)
         {
-            await work();
+            try { await work(); }
+            catch (Exception ex) { ViewModel.SetError(ex.Message); }
             return;
         }
 
@@ -647,6 +690,7 @@ public sealed partial class MainWindow : Window
             catch (Exception ex)
             {
                 App.LogCrash("RunOnUiThreadAsync: " + ex);
+                ViewModel.SetError(ex.Message);
             }
             finally
             {
@@ -658,11 +702,6 @@ public sealed partial class MainWindow : Window
 
     private void OnPaletteAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (FocusManager.GetFocusedElement() is TextBox)
-        {
-            return;
-        }
-
         args.Handled = true;
         _ = RunOnUiThreadAsync(async () => await ShowCommandPaletteAsync());
     }
@@ -754,7 +793,7 @@ public sealed partial class MainWindow : Window
             new(MainViewModel.Localize("Cmd_Redo"), async () => await ViewModel.RedoAsync()),
             new(MainViewModel.Localize("Cmd_ExportCurrent"), async () => await ExportAsync(ViewModel.SelectedNode)),
             new(MainViewModel.Localize("Cmd_Import"), async () => await ImportAsync()),
-            new(MainViewModel.Localize("Cmd_Toggle32Bit"), async () => await ViewModel.SetViewAsync(!ViewModel.Is32BitView)),
+            new(MainViewModel.Localize("Cmd_Toggle32Bit"), () => { View32Toggle.IsChecked = !ViewModel.Is32BitView; return Task.CompletedTask; }),
             new(MainViewModel.Localize("Cmd_CycleTheme"), () => { OnThemeClick(this, new RoutedEventArgs()); return Task.CompletedTask; }),
         };
 
@@ -810,6 +849,7 @@ public sealed partial class MainWindow : Window
         var dialog = new ContentDialog
         {
             XamlRoot = root,
+            RequestedTheme = (root.Content as FrameworkElement)?.ActualTheme ?? ElementTheme.Default,
             Title = title,
             Content = message,
             PrimaryButtonText = action,
@@ -857,6 +897,7 @@ public sealed partial class MainWindow : Window
         var dialog = new ContentDialog
         {
             XamlRoot = root,
+            RequestedTheme = (root.Content as FrameworkElement)?.ActualTheme ?? ElementTheme.Default,
             Title = title,
             Content = panel,
             PrimaryButtonText = action,
@@ -875,6 +916,7 @@ public sealed partial class MainWindow : Window
         var dialog = new ContentDialog
         {
             XamlRoot = root,
+            RequestedTheme = (root.Content as FrameworkElement)?.ActualTheme ?? ElementTheme.Default,
             Title = title,
             Content = box,
             PrimaryButtonText = MainViewModel.Localize("Dialog_OK"),
@@ -1079,7 +1121,7 @@ public sealed partial class MainWindow : Window
         if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
         {
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
-            ViewModel.SetStatusMessage("Drop to import the .reg file.");
+            ViewModel.SetStatusMessage(MainViewModel.Localize("Drop_Hint"));
         }
     }
 
@@ -1120,10 +1162,11 @@ public sealed partial class MainWindow : Window
         }
 
         var service = new RegistryService();
-        RegFile.ParsedRegFile parsed;
+        RegFile.ImportPlan plan;
+        RegistryView view = ViewModel.CurrentView;
         try
         {
-            parsed = RegFile.Parse(path);
+            plan = await Task.Run(() => RegFile.BuildImportPlan(service, RegFile.Parse(path), view));
         }
         catch (Exception ex)
         {
@@ -1131,7 +1174,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        RegFile.ImportPlan plan = RegFile.BuildImportPlan(service, parsed, ViewModel.CurrentView);
+        if (view != ViewModel.CurrentView) return;
         if (plan.Operations.Count == 0)
         {
             ViewModel.SetStatusMessage(MainViewModel.Localize("Import_NoChanges", path));
@@ -1187,6 +1230,7 @@ public sealed partial class MainWindow : Window
         var dialog = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,
+            RequestedTheme = RootGrid.ActualTheme,
             Title = MainViewModel.Localize("Import_PreviewTitle"),
             Content = panel,
             PrimaryButtonText = MainViewModel.Localize("Dialog_Apply"),
@@ -1223,14 +1267,8 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // 空串表示默认值命中；null 表示仅键命中（不选值行）
-        ViewModel.PendingJumpValueName = row.ValueName switch
-        {
-            "" => null,
-            "(key)" => null,
-            "(Default)" => string.Empty,
-            string name => name,
-        };
+        ViewModel.ValueFilterText = string.Empty;
+        ViewModel.PendingJumpValueName = row.IsKeyMatch ? null : row.ValueName;
 
         await RunOnUiThreadAsync(async () =>
         {

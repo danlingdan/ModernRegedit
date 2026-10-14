@@ -33,7 +33,6 @@ public partial class MainViewModel : ObservableObject
 
     private bool _searchCapped;
 
-    private Stopwatch? _searchStopwatch;
 
     private DispatcherQueue? _dispatcherQueue;
 
@@ -149,6 +148,52 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<RegistryKeyNode> Roots { get; } = new();
 
     public ObservableCollection<RegistryValueRow> Values { get; } = new();
+
+    private readonly List<RegistryValueRow> _allValues = [];
+    private int _sortColumn;
+    private bool _sortDescending;
+
+    [ObservableProperty]
+    public partial string ValueFilterText { get; set; } = string.Empty;
+
+    public string ValueSummary => Localize("Values_Count", Values.Count, _allValues.Count);
+    public string EmptyValuesHint => Localize(string.IsNullOrWhiteSpace(ValueFilterText) ? "Values_Empty" : "Values_NoMatches");
+
+    partial void OnValueFilterTextChanged(string value) => ApplyValueFilter();
+
+    public void SortValues(int column)
+    {
+        _sortDescending = _sortColumn == column && !_sortDescending;
+        _sortColumn = column;
+        ApplyValueFilter();
+    }
+
+    private void ApplyValueFilter()
+    {
+        string query = ValueFilterText.Trim();
+        var selected = SelectedValueRow;
+        IEnumerable<RegistryValueRow> rows = _allValues.Where(v => query.Length == 0
+            || v.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || v.KindDisplay.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || v.DataDisplay.Contains(query, StringComparison.OrdinalIgnoreCase));
+        Func<RegistryValueRow, string> key = _sortColumn switch
+        {
+            1 => v => v.KindDisplay,
+            2 => v => v.DataDisplay,
+            _ => v => v.ValueName,
+        };
+        rows = _sortDescending ? rows.OrderByDescending(key, StringComparer.CurrentCultureIgnoreCase)
+            : rows.OrderBy(key, StringComparer.CurrentCultureIgnoreCase);
+        rows = rows.OrderBy(v => v.ValueName.Length == 0 ? 0 : 1);
+        Values.Clear();
+        foreach (var row in rows) Values.Add(row);
+        SelectedValueRow = selected is not null && Values.Contains(selected) ? selected : null;
+        ValueListEmptyVisibility = !IsLoadingValues && (Values.Count == 0 || (query.Length == 0 && Values.Count == 1 && Values[0].IsUnset))
+            ? Visibility.Visible : Visibility.Collapsed;
+        OnPropertyChanged(nameof(ValueSummary));
+        OnPropertyChanged(nameof(EmptyValuesHint));
+    }
+
 
     public string StatusText
     {
@@ -317,7 +362,7 @@ public partial class MainViewModel : ObservableObject
         SearchResults.Clear();
         _searchResultCount = 0;
         _searchCapped = false;
-        _searchStopwatch = Stopwatch.StartNew();
+        var stopwatch = Stopwatch.StartNew();
         IsSearchRunning = true;
         SearchPanelVisibility = Visibility.Visible;
 
@@ -325,6 +370,8 @@ public partial class MainViewModel : ObservableObject
         {
             IsSearchRunning = false;
             SearchStatus = Localize("Status_ScopeRequired");
+            _searchCts = null;
+            cts.Dispose();
             return;
         }
 
@@ -338,12 +385,12 @@ public partial class MainViewModel : ObservableObject
             cts.Token,
             batch =>
             {
-                _dispatcherQueue?.TryEnqueue(() =>
+                var applied = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                if (_dispatcherQueue?.TryEnqueue(() =>
                 {
-                    if (_searchCts != cts)
+                    try
                     {
-                        return;
-                    }
+                    if (_searchCts != cts) return;
 
                     foreach (SearchResult result in batch)
                     {
@@ -358,6 +405,7 @@ public partial class MainViewModel : ObservableObject
                             KeyPath = result.KeyPath,
                             ValueName = result.ValueName,
                             DataPreview = result.DataPreview,
+                            IsKeyMatch = result.IsKeyMatch,
                         });
                     }
 
@@ -370,21 +418,28 @@ public partial class MainViewModel : ObservableObject
                     SearchStatus = _searchCapped
                         ? Localize("Status_Search_Capped", MaxSearchResults)
                         : Localize("Status_Searching_Count", _searchResultCount);
-                });
+                    }
+                    finally { applied.TrySetResult(); }
+                }) != true) applied.TrySetResult();
+                // 每个搜索分片等待此批呈现，限制 UI 队列积压。
+                applied.Task.GetAwaiter().GetResult();
             });
 
         if (_searchCts != cts)
         {
-            return; // 已被新搜索取代
+            cts.Dispose();
+            return;
         }
 
         IsSearchRunning = false;
-        string elapsed = _searchStopwatch!.Elapsed.TotalSeconds.ToString("0.0");
+        string elapsed = stopwatch.Elapsed.TotalSeconds.ToString("0.0");
         SearchStatus = _searchCapped
             ? Localize("Status_Search_Capped_Elapsed", MaxSearchResults, elapsed)
             : cts.IsCancellationRequested
                 ? Localize("Status_Search_Cancelled", _searchResultCount, elapsed)
                 : Localize("Status_Search_Done", _searchResultCount, elapsed);
+        _searchCts = null;
+        cts.Dispose();
     }
 
     public void CancelSearch()
@@ -567,6 +622,8 @@ public partial class MainViewModel : ObservableObject
                 // 当前选中键已被删除/改名：清空值面板，等待窗口层改选。
                 SelectedNode = null;
                 Values.Clear();
+                _allValues.Clear();
+                ApplyValueFilter();
                 OnPropertyChanged(nameof(StatusText));
             }
         }
@@ -879,6 +936,7 @@ public partial class MainViewModel : ObservableObject
 
         _statusError = null;
         SelectedNode = node;
+        if (ValueFilterText.Length > 0) ValueFilterText = string.Empty;
         AddressText = node.FullPath;
 
         HighRiskArea? risk = HighRiskKeys.Match(node.FullPath);
@@ -895,6 +953,8 @@ public partial class MainViewModel : ObservableObject
         IsLoadingValues = true;
         ValueListEmptyVisibility = Visibility.Collapsed;
         Values.Clear();
+        _allValues.Clear();
+        OnPropertyChanged(nameof(ValueSummary));
         OnPropertyChanged(nameof(StatusText));
 
         string fullPath = node.FullPath;
@@ -939,7 +999,7 @@ public partial class MainViewModel : ObservableObject
                 _selectedValueCount = valueCount;
                 _isLoadingValues = false;
                 IsLoadingValues = false;
-                Values.Clear();
+                _allValues.Clear();
                 SelectedValueRow = null;
 
                 // 图标与画刷取自应用资源，只能在 UI 线程解析。
@@ -947,25 +1007,22 @@ public partial class MainViewModel : ObservableObject
                 if (defaultIndex >= 0)
                 {
                     (string name, RegKind kind, string data, byte[] raw) = decoded[defaultIndex];
-                    Values.Add(MakeRow(Localize("Value_Default"), decoded[defaultIndex].Name, decoded[defaultIndex].Kind, decoded[defaultIndex].Raw, decoded[defaultIndex].Data));
+                    _allValues.Add(MakeRow(Localize("Value_Default"), decoded[defaultIndex].Name, decoded[defaultIndex].Kind, decoded[defaultIndex].Raw, decoded[defaultIndex].Data));
                 }
                 else
                 {
-                    Values.Add(MakeRow(Localize("Value_Default"), string.Empty, RegKind.Sz, Array.Empty<byte>(), Localize("Value_NotSet"), isUnset: true));
+                    _allValues.Add(MakeRow(Localize("Value_Default"), string.Empty, RegKind.Sz, Array.Empty<byte>(), Localize("Value_NotSet"), isUnset: true));
                 }
 
                 foreach ((string name, RegKind kind, string data, byte[] raw) in decoded)
                 {
                     if (name.Length > 0)
                     {
-                        Values.Add(MakeRow(name, name, kind, raw, data));
+                        _allValues.Add(MakeRow(name, name, kind, raw, data));
                     }
                 }
 
-                // 只有未设置的默认值占位行 → 空状态引导。
-                ValueListEmptyVisibility = Values.Count == 1 && Values[0].IsUnset
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
+                ApplyValueFilter();
 
                 // 搜索结果跳转：选中命中的值行
                 string? pending = PendingJumpValueName;
@@ -1012,6 +1069,8 @@ public partial class MainViewModel : ObservableObject
         _statusError = null;
         ValueListEmptyVisibility = Visibility.Collapsed;
         Values.Clear();
+        _allValues.Clear();
+        OnPropertyChanged(nameof(ValueSummary));
         OnPropertyChanged(nameof(StatusText));
 
         if (currentPath is null)

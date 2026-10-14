@@ -64,7 +64,7 @@
 
   <data name="About_Header" xml:space="preserve"><value>About</value></data>
   <data name="About_VersionLine" xml:space="preserve"><value>ModernRegedit {0} — MIT License</value></data>
-  <data name="About_Description" xml:space="preserve"><value>A modern registry editor for Windows. Provided as-is, without warranty.</value></data>
+  <data name="About_Description" xml:space="preserve"><value>Modern Windows registry editor · Open source under MIT</value></data>
   <data name="About_RepoLink" xml:space="preserve"><value>GitHub repository</value></data>
   <data name="About_BackupsLink" xml:space="preserve"><value>Open backups folder</value></data>
 
@@ -166,4 +166,22 @@
   <data name="VD_HexBytesHeader" xml:space="preserve"><value>Hex bytes (any spacing)</value></data>
   <data name="VD_NameRequired" xml:space="preserve"><value>Value name is required.</value></data>
   <data name="VD_InvalidData" xml:space="preserve"><value>Invalid data for this type.</value></data>
+  <data name="Action_NewKey.Label" xml:space="preserve"><value>New key</value></data>
+  <data name="Action_NewValue.Label" xml:space="preserve"><value>New value</value></data>
+  <data name="Action_Import.Label" xml:space="preserve"><value>Import</value></data>
+  <data name="Action_Export.Label" xml:space="preserve"><value>Export</value></data>
+  <data name="Action_Refresh.Label" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Action_Commands.Label" xml:space="preserve"><value>Commands · Ctrl+K</value></data>
+  <data name="ValueFilter.PlaceholderText" xml:space="preserve"><value>Filter values in this key</value></data>
+  <data name="ValueFilter.AutomationProperties.Name" xml:space="preserve"><value>Filter values in this key</value></data>
+  <data name="Sort_Name.Content" xml:space="preserve"><value>Name ↕</value></data>
+  <data name="Sort_Type.Content" xml:space="preserve"><value>Type ↕</value></data>
+  <data name="Sort_Data.Content" xml:space="preserve"><value>Data ↕</value></data>
+  <data name="Sort_Name.AutomationProperties.Name" xml:space="preserve"><value>Sort by name</value></data>
+  <data name="Sort_Type.AutomationProperties.Name" xml:space="preserve"><value>Sort by type</value></data>
+  <data name="Sort_Data.AutomationProperties.Name" xml:space="preserve"><value>Sort by data</value></data>
+  <data name="Values_Count" xml:space="preserve"><value>Showing {0} of {1} values</value></data>
+  <data name="Values_Empty" xml:space="preserve"><value>No values set. Choose New value to add one.</value></data>
+  <data name="Values_NoMatches" xml:space="preserve"><value>No matching values. Press Esc to clear the filter.</value></data>
+  <data name="About_Prerelease" xml:space="preserve"><value>1.0.1 prerelease · rc.1</value></data>
 </root>

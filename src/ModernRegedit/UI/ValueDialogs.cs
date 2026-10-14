@@ -71,6 +71,7 @@ internal static class ValueDialogs
         var dialog = new ContentDialog
         {
             XamlRoot = root,
+            RequestedTheme = (root.Content as FrameworkElement)?.ActualTheme ?? ElementTheme.Default,
             Title = title,
             Content = rootPanel,
             PrimaryButtonText = MainViewModel.Localize("Dialog_OK"),
